@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration - Tautulli History Exporter{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <i class="bi bi-gear" style="font-size: 3rem; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"></i>
+            <h1 class="h2 fw-bold mt-3">Tautulli Configuration</h1>
+            <p class="text-muted">Connect your Tautulli instance to start analyzing watch history</p>
+        </div>
+
+        <!-- Configuration Card -->
+        <div class="card">
+            <div class="card-header text-white">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-sliders me-2"></i>
+                    <h4 class="mb-0">Connection Settings</h4>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" id="configForm">
+                    <div class="mb-4">
+                        <label for="tautulli_url" class="form-label fw-semibold">
+                            <i class="bi bi-link-45deg me-1"></i>Tautulli URL
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-globe"></i></span>
+                            <input type="url" class="form-control" id="tautulli_url" name="tautulli_url" 
+                                   value="{{ config.tautulli_url or '' }}" placeholder="http://localhost:8181" required>
+                        </div>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Enter the full URL to your Tautulli instance (e.g., http://192.168.1.100:8181)
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="api_key" class="form-label fw-semibold">
+                            <i class="bi bi-key me-1"></i>API Key
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                            <input type="password" class="form-control" id="api_key" name="api_key" 
+                                   value="{{ config.api_key or '' }}" placeholder="Your Tautulli API key" required>
+                            <button class="btn btn-outline-secondary" type="button" id="toggleApiKey">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Found in Tautulli Settings → Web Interface → API → API Key
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <button type="button" class="btn btn-outline-primary w-100 btn-lg" id="testConnection">
+                                <i class="bi bi-wifi me-2"></i>Test Connection
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <button type="submit" class="btn btn-primary w-100 btn-lg">
+                                <i class="bi bi-check-circle me-2"></i>Save Configuration
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                
+                <div id="connectionResult" class="mt-4" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <!-- Setup Instructions -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-list-check me-2"></i>
+                    <h5 class="mb-0">Setup Instructions</h5>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <div class="flex-shrink-0">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 2.5rem; height: 2.5rem;">
+                                    <strong>1</strong>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="fw-semibold">Access Tautulli</h6>
+                                <p class="text-muted mb-0 small">Open your Tautulli web interface in a new tab</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <div class="flex-shrink-0">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 2.5rem; height: 2.5rem;">
+                                    <strong>2</strong>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="fw-semibold">Navigate to Settings</h6>
+                                <p class="text-muted mb-0 small">Go to <strong>Settings</strong> → <strong>Web Interface</strong></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <div class="flex-shrink-0">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 2.5rem; height: 2.5rem;">
+                                    <strong>3</strong>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="fw-semibold">Find API Section</h6>
+                                <p class="text-muted mb-0 small">Scroll down to the <strong>API</strong> section</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <div class="flex-shrink-0">
+                                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 2.5rem; height: 2.5rem;">
+                                    <strong>4</strong>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="fw-semibold">Copy & Test</h6>
+                                <p class="text-muted mb-0 small">Copy the <strong>API Key</strong> and test the connection</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// API Key visibility toggle
+document.getElementById('toggleApiKey').addEventListener('click', function() {
+    const apiKey = document.getElementById('api_key');
+    const icon = this.querySelector('i');
+    
+    if (apiKey.type === 'password') {
+        apiKey.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+    } else {
+        apiKey.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+    }
+});
+
+// Test connection
+document.getElementById('testConnection').addEventListener('click', function() {
+    const url = document.getElementById('tautulli_url').value;
+    const apiKey = document.getElementById('api_key').value;
+    const resultDiv = document.getElementById('connectionResult');
+    const button = this;
+    
+    if (!url || !apiKey) {
+        resultDiv.innerHTML = '<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Please fill in both URL and API key.</div>';
+        resultDiv.style.display = 'block';
+        return;
+    }
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Testing Connection...';
+    
+    const formData = new FormData();
+    formData.append('tautulli_url', url);
+    formData.append('api_key', apiKey);
+    
+    fetch('/test_connection', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>
+                    <strong>Success!</strong> ${data.message}
+                    <div class="mt-2 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Your Tautulli instance is accessible and the API key is valid.
+                    </div>
+                </div>
+            `;
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-x-circle me-2"></i>
+                    <strong>Connection Failed:</strong> ${data.message}
+                    <div class="mt-2 small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Please check your URL and API key, then try again.
+                    </div>
+                </div>
+            `;
+        }
+        resultDiv.style.display = 'block';
+    })
+    .catch(error => {
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-x-circle me-2"></i>
+                <strong>Error:</strong> ${error.message}
+            </div>
+        `;
+        resultDiv.style.display = 'block';
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-wifi me-2"></i>Test Connection';
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Tautulli History Exporter{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-success: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --shadow-soft: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+            --shadow-hover: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.15);
+            --border-radius-modern: 1rem;
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        [data-bs-theme="dark"] {
+            --bs-body-bg: #0d1117;
+            --bs-body-color: #e6edf3;
+            --bs-border-color: #30363d;
+        }
+
+        body {
+            background: var(--bs-body-bg);
+            color: var(--bs-body-color);
+            transition: var(--transition-smooth);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        .navbar {
+            background: var(--gradient-primary) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem 0;
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-link {
+            font-weight: 500;
+            transition: var(--transition-smooth);
+            border-radius: 0.5rem;
+            margin: 0 0.25rem;
+            padding: 0.5rem 1rem !important;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .card {
+            border: none;
+            border-radius: var(--border-radius-modern);
+            box-shadow: var(--shadow-soft);
+            transition: var(--transition-smooth);
+            backdrop-filter: blur(10px);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            border-radius: var(--border-radius-modern) var(--border-radius-modern) 0 0 !important;
+            background: var(--gradient-primary) !important;
+            border-bottom: none;
+            padding: 1.5rem;
+        }
+
+        .btn {
+            border-radius: 0.75rem;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            transition: var(--transition-smooth);
+            border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+        }
+
+        .btn-success {
+            background: var(--gradient-success);
+        }
+
+        .btn-warning {
+            background: var(--gradient-secondary);
+        }
+
+        .form-control, .form-select {
+            border-radius: 0.75rem;
+            border: 2px solid transparent;
+            background: var(--bs-gray-100);
+            transition: var(--transition-smooth);
+            padding: 0.75rem 1rem;
+        }
+
+        [data-bs-theme="dark"] .form-control,
+        [data-bs-theme="dark"] .form-select {
+            background: var(--bs-gray-800);
+            color: var(--bs-body-color);
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .table {
+            border-radius: var(--border-radius-modern);
+            overflow: hidden;
+            box-shadow: var(--shadow-soft);
+        }
+
+        .table-responsive {
+            border-radius: var(--border-radius-modern);
+        }
+
+        .badge {
+            border-radius: 0.5rem;
+            font-weight: 600;
+            padding: 0.5rem 0.75rem;
+        }
+
+        .progress {
+            border-radius: 1rem;
+            height: 0.75rem;
+        }
+
+        .alert {
+            border: none;
+            border-radius: var(--border-radius-modern);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .theme-toggle {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            border-radius: 50%;
+            width: 3.5rem;
+            height: 3.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            box-shadow: var(--shadow-hover);
+            transition: var(--transition-smooth);
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1) rotate(10deg);
+            box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.2);
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .container {
+            max-width: 1200px;
+        }
+
+        /* Dark mode specific adjustments */
+        [data-bs-theme="dark"] .card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        [data-bs-theme="dark"] .table {
+            --bs-table-bg: rgba(30, 41, 59, 0.5);
+        }
+
+        [data-bs-theme="dark"] .navbar {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Loading animation improvements */
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            border-width: 0.3em;
+        }
+
+        /* Enhanced input groups */
+        .input-group {
+            box-shadow: var(--shadow-soft);
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+
+        .input-group .form-control {
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .input-group .btn {
+            border-radius: 0;
+        }
+    </style>
+</head>
+<body class="fade-in">
+    {% if session.user_id %}
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="bi bi-bar-chart-line me-2"></i>Tautulli History Exporter
+            </a>
+            <div class="navbar-nav ms-auto d-flex flex-row">
+                <a class="nav-link" href="{{ url_for('index') }}">
+                    <i class="bi bi-house me-1"></i>Dashboard
+                </a>
+                <a class="nav-link" href="{{ url_for('configuration') }}">
+                    <i class="bi bi-gear me-1"></i>Config
+                </a>
+                <a class="nav-link" href="{{ url_for('logout') }}">
+                    <i class="bi bi-box-arrow-right me-1"></i>Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        <i class="bi bi-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' if category == 'success' else 'info-circle' }} me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Theme Toggle Button -->
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+        <i class="bi bi-moon-fill" id="themeIcon"></i>
+    </button>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Theme Toggle Functionality
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const html = document.documentElement;
+
+        // Load saved theme or default to light
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        setTheme(savedTheme);
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = html.getAttribute('data-bs-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            setTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+        });
+
+        function setTheme(theme) {
+            html.setAttribute('data-bs-theme', theme);
+            themeIcon.className = theme === 'light' ? 'bi bi-moon-fill' : 'bi bi-sun-fill';
+            themeToggle.title = theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+        }
+
+        // Add smooth scroll behavior
+        document.documentElement.style.scrollBehavior = 'smooth';
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

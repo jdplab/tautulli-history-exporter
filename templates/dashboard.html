@@ -1,0 +1,496 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Tautulli History Exporter{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Welcome Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h2 fw-bold mb-1">Analytics Dashboard</h1>
+                <p class="text-muted mb-0">Export and analyze your Tautulli watch history</p>
+            </div>
+            <div class="d-flex gap-2">
+                <span class="badge bg-success px-3 py-2">
+                    <i class="bi bi-wifi me-1"></i>Connected
+                </span>
+            </div>
+        </div>
+
+        <!-- Main Control Panel -->
+        <div class="card">
+            <div class="card-header text-white">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-sliders me-2"></i>
+                    <h4 class="mb-0">Query Controls</h4>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <!-- User Selection and Filters -->
+                <form id="historyForm" class="row g-4">
+                    <div class="col-lg-6">
+                        <label for="userSelect" class="form-label fw-semibold">
+                            <i class="bi bi-person-circle me-1"></i>Select User
+                        </label>
+                        <div class="input-group">
+                            <select class="form-select" id="userSelect" name="user_id" required>
+                                <option value="">Choose a user...</option>
+                            </select>
+                            <button type="button" class="btn btn-outline-secondary" id="loadUsers" title="Refresh user list">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-3 col-md-6">
+                        <label for="mediaType" class="form-label fw-semibold">
+                            <i class="bi bi-collection-play me-1"></i>Media Type
+                        </label>
+                        <select class="form-select" id="mediaType" name="media_type">
+                            <option value="">All Types</option>
+                            <option value="movie">🎬 Movies</option>
+                            <option value="episode">📺 TV Episodes</option>
+                            <option value="track">🎵 Music</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-lg-3 col-md-6">
+                        <label for="length" class="form-label fw-semibold">
+                            <i class="bi bi-list-ol me-1"></i>Items to Return
+                        </label>
+                        <select class="form-select" id="length" name="length">
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="250">250</option>
+                            <option value="500">500</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="startDate" class="form-label fw-semibold">
+                            <i class="bi bi-calendar-event me-1"></i>Start Date
+                        </label>
+                        <input type="date" class="form-control" id="startDate" name="start_date">
+                        <div class="form-text">Filter results after this date</div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="endDate" class="form-label fw-semibold">
+                            <i class="bi bi-calendar-check me-1"></i>End Date
+                        </label>
+                        <input type="date" class="form-control" id="endDate" name="end_date">
+                        <div class="form-text">Filter results before this date</div>
+                    </div>
+                    
+                    <div class="col-12">
+                        <div class="d-flex gap-3 flex-wrap">
+                            <button type="submit" class="btn btn-primary btn-lg flex-grow-1" style="min-width: 200px;">
+                                <i class="bi bi-search me-2"></i>Get History
+                            </button>
+                            <button type="button" class="btn btn-success btn-lg" id="exportCsv" disabled>
+                                <i class="bi bi-download me-2"></i>Export CSV
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-lg" id="clearFilters">
+                                <i class="bi bi-x-circle me-2"></i>Clear Filters
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                
+                <!-- Loading Indicator -->
+                <div id="loadingIndicator" class="text-center mt-5 py-5" style="display: none;">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 class="text-muted">Loading history data...</h5>
+                    <p class="text-muted mb-0">This may take a moment for large datasets</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div id="resultsSection" class="mt-4" style="display: none;">
+            <div class="card">
+                <div class="card-header text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-table me-2"></i>
+                            <h5 class="mb-0">Watch History Results</h5>
+                        </div>
+                        <span id="resultCount" class="badge bg-white text-dark px-3 py-2 fs-6"></span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="historyTable">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th class="px-4 py-3">
+                                        <i class="bi bi-calendar3 me-1"></i>Date
+                                    </th>
+                                    <th class="px-4 py-3">
+                                        <i class="bi bi-play-circle me-1"></i>Title
+                                    </th>
+                                    <th class="px-4 py-3">
+                                        <i class="bi bi-collection me-1"></i>Type
+                                    </th>
+                                    <th class="px-4 py-3">
+                                        <i class="bi bi-clock me-1"></i>Duration
+                                    </th>
+                                    <th class="px-4 py-3">
+                                        <i class="bi bi-percent me-1"></i>Progress
+                                    </th>
+                                    <th class="px-4 py-3">
+                                        <i class="bi bi-check-circle me-1"></i>Status
+                                    </th>
+                                    <th class="px-4 py-3">
+                                        <i class="bi bi-geo-alt me-1"></i>IP Address
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                <!-- Data will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentHistoryData = [];
+
+// Load users on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadUsers();
+});
+
+// Load users function
+function loadUsers() {
+    const button = document.getElementById('loadUsers');
+    const select = document.getElementById('userSelect');
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+    
+    fetch('/get_users')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                select.innerHTML = '<option value="">Choose a user...</option>';
+                data.users.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.user_id;
+                    option.textContent = user.friendly_name;
+                    select.appendChild(option);
+                });
+            } else {
+                alert('Error loading users: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error loading users: ' + error.message);
+        })
+        .finally(() => {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+        });
+}
+
+// Handle form submission
+document.getElementById('historyForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Validate date range
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    
+    if (startDate && endDate && startDate > endDate) {
+        alert('Start date must be before or equal to end date');
+        return;
+    }
+    
+    const formData = new FormData(this);
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const resultsSection = document.getElementById('resultsSection');
+    
+    // Update loading message based on whether date filtering is applied
+    const loadingText = document.querySelector('#loadingIndicator p');
+    if (startDate || endDate) {
+        loadingText.textContent = 'Loading history data and applying date filters...';
+    } else {
+        loadingText.textContent = 'Loading history data...';
+    }
+    
+    // Show loading, hide results
+    loadingIndicator.style.display = 'block';
+    resultsSection.style.display = 'none';
+    
+    fetch('/get_history', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentHistoryData = data.history;
+            displayHistory(data.history);
+            document.getElementById('exportCsv').disabled = false;
+        } else {
+            alert('Error loading history: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Error loading history: ' + error.message);
+    })
+    .finally(() => {
+        loadingIndicator.style.display = 'none';
+    });
+});
+
+// Clear filters function
+document.getElementById('clearFilters').addEventListener('click', function() {
+    document.getElementById('userSelect').value = '';
+    document.getElementById('mediaType').value = '';
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value = '';
+    document.getElementById('length').value = '25';
+    
+    // Hide results and disable export
+    document.getElementById('resultsSection').style.display = 'none';
+    document.getElementById('exportCsv').disabled = true;
+    currentHistoryData = [];
+});
+
+// Date validation on input
+document.getElementById('startDate').addEventListener('change', function() {
+    const startDate = this.value;
+    const endDateInput = document.getElementById('endDate');
+    
+    if (startDate) {
+        endDateInput.min = startDate;
+        
+        // If end date is before start date, clear it
+        if (endDateInput.value && endDateInput.value < startDate) {
+            endDateInput.value = '';
+        }
+    } else {
+        endDateInput.removeAttribute('min');
+    }
+});
+
+document.getElementById('endDate').addEventListener('change', function() {
+    const endDate = this.value;
+    const startDateInput = document.getElementById('startDate');
+    
+    if (endDate) {
+        startDateInput.max = endDate;
+        
+        // If start date is after end date, clear it
+        if (startDateInput.value && startDateInput.value > endDate) {
+            startDateInput.value = '';
+        }
+    } else {
+        startDateInput.removeAttribute('max');
+    }
+});
+
+// Display history function
+function displayHistory(history) {
+    const tbody = document.getElementById('historyTableBody');
+    const resultCount = document.getElementById('resultCount');
+    const resultsSection = document.getElementById('resultsSection');
+    
+    tbody.innerHTML = '';
+    
+    if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-inbox display-1 d-block mb-3"></i><h5>No history data found</h5><p class="mb-0">Try adjusting your filters or date range</p></td></tr>';
+    } else {
+        history.forEach(item => {
+            const row = document.createElement('tr');
+            row.className = 'align-middle';
+            
+            // Format date
+            const date = item.date ? new Date(parseInt(item.date) * 1000).toLocaleString() : 'N/A';
+            
+            // Format title
+            let title = item.title || 'Unknown';
+            if (item.grandparent_title) {
+                title = `${item.grandparent_title} - ${title}`;
+            }
+            
+            // Format duration
+            const duration = item.duration ? Math.round(parseInt(item.duration) / 60) + ' min' : 'N/A';
+            
+            // Format percent complete
+            const percentComplete = item.percent_complete ? item.percent_complete + '%' : 'N/A';
+            
+            // Format watched status
+            let watchedStatus = item.watched_status || 0;
+            let statusBadge = '';
+            let statusText = '';
+            let statusIcon = '';
+            
+            switch (parseInt(watchedStatus)) {
+                case 0:
+                    statusBadge = 'bg-danger';
+                    statusText = 'Stopped';
+                    statusIcon = 'bi-stop-circle';
+                    break;
+                case 1:
+                    statusBadge = 'bg-success';
+                    statusText = 'Finished';
+                    statusIcon = 'bi-check-circle';
+                    break;
+                default:
+                    statusBadge = 'bg-secondary';
+                    statusText = 'Unknown';
+                    statusIcon = 'bi-question-circle';
+            }
+
+            // Media type styling
+            let mediaTypeIcon = '';
+            let mediaTypeBadge = 'bg-info';
+            switch(item.media_type) {
+                case 'movie':
+                    mediaTypeIcon = 'bi-film';
+                    mediaTypeBadge = 'bg-primary';
+                    break;
+                case 'episode':
+                    mediaTypeIcon = 'bi-tv';
+                    mediaTypeBadge = 'bg-success';
+                    break;
+                case 'track':
+                    mediaTypeIcon = 'bi-music-note';
+                    mediaTypeBadge = 'bg-warning';
+                    break;
+                default:
+                    mediaTypeIcon = 'bi-question-circle';
+            }
+            
+            row.innerHTML = `
+                <td class="px-4 py-3 text-nowrap">
+                    <small class="text-muted d-block">${date.split(',')[0]}</small>
+                    <small>${date.split(',')[1] || ''}</small>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="fw-semibold">${title}</div>
+                </td>
+                <td class="px-4 py-3">
+                    <span class="badge ${mediaTypeBadge}">
+                        <i class="${mediaTypeIcon} me-1"></i>${item.media_type || 'Unknown'}
+                    </span>
+                </td>
+                <td class="px-4 py-3">
+                    <span class="fw-medium">${duration}</span>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="progress mb-1" style="height: 8px;">
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: ${item.percent_complete || 0}%"></div>
+                    </div>
+                    <small class="text-muted">${percentComplete}</small>
+                </td>
+                <td class="px-4 py-3">
+                    <span class="badge ${statusBadge}">
+                        <i class="${statusIcon} me-1"></i>${statusText}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-muted">
+                    <small><i class="bi bi-geo-alt me-1"></i>${item.ip_address || 'N/A'}</small>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        });
+    }
+    
+    // Update result count with filter info
+    let countText = `${history.length} items`;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    const mediaType = document.getElementById('mediaType').value;
+    
+    let filterInfo = [];
+    if (startDate || endDate) {
+        if (startDate && endDate) {
+            filterInfo.push(`${startDate} to ${endDate}`);
+        } else if (startDate) {
+            filterInfo.push(`from ${startDate}`);
+        } else if (endDate) {
+            filterInfo.push(`until ${endDate}`);
+        }
+    }
+    if (mediaType) {
+        const mediaTypeNames = {
+            'movie': 'Movies',
+            'episode': 'TV Episodes', 
+            'track': 'Music'
+        };
+        filterInfo.push(mediaTypeNames[mediaType] || mediaType);
+    }
+    
+    if (filterInfo.length > 0) {
+        countText += ` (${filterInfo.join(', ')})`;
+    }
+    
+    resultCount.textContent = countText;
+    resultsSection.style.display = 'block';
+}
+
+// Export CSV function
+document.getElementById('exportCsv').addEventListener('click', function() {
+    if (currentHistoryData.length === 0) {
+        alert('No data to export');
+        return;
+    }
+    
+    const button = this;
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i> Exporting...';
+    
+    fetch('/export_csv', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            history: currentHistoryData
+        })
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        }
+        throw new Error('Export failed');
+    })
+    .then(blob => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `tautulli_history_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    })
+    .catch(error => {
+        alert('Error exporting CSV: ' + error.message);
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-download"></i> Export CSV';
+    });
+});
+
+// Load users button click
+document.getElementById('loadUsers').addEventListener('click', loadUsers);
+</script>
+{% endblock %}
