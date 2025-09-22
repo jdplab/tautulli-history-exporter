@@ -37,10 +37,14 @@ A modern, production-ready web application to export watch history from Tautulli
    git clone <repository-url>
    cd tautulli-history-exporter
    
-   # Create environment file
-   cp .env.example .env
-   # Edit .env with your secure values (see Configuration section)
+   # Create environment file (see Environment Setup section for details)
+   # For quick start, create .env with basic settings:
+   echo "SECRET_KEY=dev-secret-change-for-production" > .env
+   echo "DATABASE_URL=sqlite:///tautulli_exporter.db" >> .env
+   echo "FLASK_ENV=development" >> .env
    ```
+
+   📋 **For production deployment**: See the detailed [Environment Setup](#-environment-setup) section below for secure configuration.
 
 2. **Deploy with Docker**:
    ```bash
@@ -65,15 +69,240 @@ For production deployment with HTTPS, monitoring, and security hardening:
 
 🔒 **Use `SECURITY-CHECKLIST.md`** to validate your security configuration before going live.
 
+## ⚙️ Environment Setup
+
+### **📋 Step-by-Step Environment Configuration**
+
+Since `.env.example` files may not be available in some repositories, here's how to create your environment configuration from scratch:
+
+#### **🔧 For Development Setup**
+
+1. **Create `.env` file**:
+   ```bash
+   # Navigate to project directory
+   cd tautulli-history-exporter
+   
+   # Create environment file
+   touch .env  # Linux/Mac
+   # or
+   New-Item .env  # Windows PowerShell
+   ```
+
+2. **Add development configuration**:
+   ```bash
+   # Copy and paste this into your .env file:
+   
+   # Development Environment Configuration
+   # ====================================
+   
+   # Flask secret key (generate new one for production!)
+   SECRET_KEY=dev-secret-key-change-for-production-use
+   
+   # Development database (SQLite for simplicity)
+   DATABASE_URL=sqlite:///tautulli_exporter.db
+   
+   # Development settings
+   FLASK_ENV=development
+   FLASK_DEBUG=true
+   
+   # Optional: Redis (leave empty to use in-memory sessions)
+   REDIS_URL=
+   
+   # Development security (relaxed for testing)
+   RATE_LIMIT=1000
+   SESSION_TIMEOUT=480
+   ```
+
+3. **Run development server**:
+   ```bash
+   python app.py
+   # Access at http://localhost:5000
+   ```
+
+#### **🚀 For Production Setup**
+
+1. **Create production `.env` file**:
+   ```bash
+   # Create environment file
+   touch .env  # Linux/Mac
+   # or  
+   New-Item .env  # Windows PowerShell
+   ```
+
+2. **Generate secure secrets**:
+   ```bash
+   # Generate SECRET_KEY (64 characters)
+   python -c "import secrets; print('SECRET_KEY=' + secrets.token_hex(32))"
+   
+   # Generate secure database password
+   python -c "import secrets, string; chars=string.ascii_letters+string.digits+'!@#$%^&*()'; print('POSTGRES_PASSWORD=' + ''.join(secrets.choice(chars) for i in range(20)))"
+   ```
+
+3. **Add production configuration**:
+   ```bash
+   # Copy the generated values above, then add this complete configuration:
+   
+   # Production Environment Configuration
+   # ===================================
+   
+   # CRITICAL: Use the generated values from step 2
+   SECRET_KEY=YOUR_GENERATED_64_CHAR_SECRET_HERE
+   POSTGRES_PASSWORD=YOUR_GENERATED_SECURE_PASSWORD_HERE
+   
+   # Production database (auto-configured for Docker)
+   DATABASE_URL=postgresql://tautulli_user:${POSTGRES_PASSWORD}@db:5432/tautulli_exporter
+   
+   # Redis session storage (auto-configured for Docker)
+   REDIS_URL=redis://redis:6379/0
+   
+   # Production settings (CRITICAL - never change these)
+   FLASK_ENV=production
+   FLASK_DEBUG=false
+   
+   # Application settings
+   HOST=0.0.0.0
+   PORT=5000
+   
+   # Security settings
+   RATE_LIMIT=100
+   SESSION_TIMEOUT=60
+   MAX_EXPORT_ITEMS=10000
+   SECURITY_HEADERS=true
+   
+   # Reverse proxy settings (if using Nginx/Apache)
+   REVERSE_PROXY=true
+   FORCE_HTTPS=true
+   ```
+
+4. **Validate configuration**:
+   ```bash
+   # Test environment loading
+   python -c "
+   from dotenv import load_dotenv
+   import os
+   load_dotenv()
+   
+   # Check critical settings
+   secret = os.getenv('SECRET_KEY', '')
+   if len(secret) >= 32:
+       print('✅ SECRET_KEY length OK')
+   else:
+       print('❌ SECRET_KEY too short (need 32+ chars)')
+   
+   if os.getenv('FLASK_DEBUG', '').lower() != 'true':
+       print('✅ DEBUG disabled (production safe)')
+   else:
+       print('⚠️  DEBUG enabled (only for development)')
+   
+   if os.getenv('POSTGRES_PASSWORD'):
+       print('✅ Database password set')
+   else:
+       print('❌ Database password missing')
+   "
+   ```
+
+#### **🐳 For Docker Deployment**
+
+1. **Create `.env` file** (same as production setup above)
+
+2. **Deploy with Docker**:
+   ```bash
+   # Start all services
+   docker-compose up -d
+   
+   # Check service health
+   docker-compose ps
+   
+   # View logs if needed
+   docker-compose logs web
+   ```
+
+3. **Verify deployment**:
+   ```bash
+   # Test application
+   curl http://localhost:5000
+   
+   # Check database connection
+   docker-compose exec web python -c "
+   from app import db
+   try:
+       db.engine.execute('SELECT 1')
+       print('✅ Database connection OK')
+   except:
+       print('❌ Database connection failed')
+   "
+   ```
+
+### **🔒 Security Validation Checklist**
+
+Before deploying to production, verify these settings in your `.env` file:
+
+```bash
+# Run this validation script:
+python -c "
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+print('🔒 Security Validation')
+print('=' * 40)
+
+# Check SECRET_KEY
+secret = os.getenv('SECRET_KEY', '')
+if len(secret) >= 64:
+    print('✅ SECRET_KEY: Strong (64+ chars)')
+elif len(secret) >= 32:
+    print('⚠️  SECRET_KEY: Acceptable (32+ chars)')
+else:
+    print('❌ SECRET_KEY: Too weak (need 32+ chars)')
+
+# Check database password
+db_pass = os.getenv('POSTGRES_PASSWORD', '')
+if len(db_pass) >= 16:
+    print('✅ DB Password: Strong (16+ chars)')
+else:
+    print('❌ DB Password: Too weak (need 16+ chars)')
+
+# Check debug mode
+debug = os.getenv('FLASK_DEBUG', '').lower()
+if debug != 'true':
+    print('✅ Debug Mode: Disabled (production safe)')
+else:
+    print('❌ Debug Mode: Enabled (security risk!)')
+
+# Check environment
+env = os.getenv('FLASK_ENV', '')
+if env == 'production':
+    print('✅ Environment: Production')
+else:
+    print('⚠️  Environment: ' + (env or 'not set'))
+
+print('=' * 40)
+print('Review any ❌ or ⚠️  items before deployment!')
+"
+```
+
+### **📁 Environment File Reference**
+
+| File | Purpose | Include in Git? |
+|------|---------|----------------|
+| `.env` | Your actual secrets | ❌ **NO** (security risk) |
+| `.env.example` | Template with safe defaults | ✅ Yes (if available) |
+| `.env.production` | Production template | ✅ Yes (if available) |
+
+**⚠️ NEVER commit your actual `.env` file to Git!** It contains sensitive secrets.
+
 ## ⚙️ Configuration
 
-### **Environment Variables**
+### **Environment Variables Summary**
 
-Create a `.env` file with these required settings:
+💡 **For detailed step-by-step setup instructions, see the [Environment Setup](#-environment-setup) section above.**
+
+**Quick Reference - Required Variables:**
 
 ```bash
 # Security (REQUIRED)
-SECRET_KEY=your-super-secret-key-32-chars-min
+SECRET_KEY=your-super-secret-key-64-chars-min
 POSTGRES_PASSWORD=your-secure-database-password
 
 # Database (Auto-configured in Docker)
@@ -82,7 +311,7 @@ DATABASE_URL=postgresql://tautulli_user:${POSTGRES_PASSWORD}@db:5432/tautulli_ex
 # Redis Session Storage (Auto-configured)
 REDIS_URL=redis://redis:6379/0
 
-# Optional: Application Settings
+# Application Settings
 FLASK_ENV=production
 FLASK_DEBUG=false
 ```
