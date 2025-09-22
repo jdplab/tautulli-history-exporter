@@ -28,217 +28,95 @@ A modern, production-ready web application to export watch history from Tautulli
 - **Scalability**: Redis caching and optimized database queries
 - **Docker Support**: Complete containerized deployment with orchestration
 
-## 🚀 Quick Start
+## 🚀 Production Deployment
 
-### **Option 1: Docker Deployment (Recommended)**
+This application is designed for production use with Docker. Follow these steps for a secure, production-ready deployment.
 
-1. **Clone and Configure**:
-   ```bash
-   git clone <repository-url>
-   cd tautulli-history-exporter
-   
-   # Create environment file (see Environment Setup section for details)
-   # For quick start, create .env with basic settings:
-   echo "SECRET_KEY=dev-secret-change-for-production" > .env
-   echo "DATABASE_URL=sqlite:///tautulli_exporter.db" >> .env
-   echo "FLASK_ENV=development" >> .env
-   ```
+### **📋 Prerequisites**
 
-   📋 **For production deployment**: See the detailed [Environment Setup](#-environment-setup) section below for secure configuration.
+- Docker and Docker Compose installed
+- Tautulli server with API access
+- Basic terminal/command line knowledge
 
-2. **Deploy with Docker**:
-   ```bash
-   docker-compose up -d
-   ```
+### **⚡ Quick Deployment**
 
-3. **Access and Setup**:
-   - Open **http://localhost:5000**
-   - Login: `admin` / `admin` (change immediately!)
-   - Configure Tautulli connection
-   - Start exporting data!
+#### **Step 1: Clone Repository**
+```bash
+git clone https://github.com/jdplab/tautulli-history-exporter
+cd tautulli-history-exporter
+```
 
-### **Option 2: Production Deployment**
+#### **Step 2: Generate Secure Configuration**
+```bash
+# Generate SECRET_KEY (copy the output)
+python -c "import secrets; print('SECRET_KEY=' + secrets.token_hex(32))"
 
-For production deployment with HTTPS, monitoring, and security hardening:
+# Generate database password (copy the output)
+python -c "import secrets, string; chars=string.ascii_letters+string.digits+'!@#$%^&*()'; print('POSTGRES_PASSWORD=' + ''.join(secrets.choice(chars) for i in range(20)))"
+```
 
-📖 **See `PRODUCTION.md`** for comprehensive deployment guides including:
-- Cloud platform deployment (AWS, GCP, Azure)
-- Reverse proxy setup (Nginx/Apache)
-- SSL/TLS configuration
-- Monitoring and logging setup
-
-🔒 **Use `SECURITY-CHECKLIST.md`** to validate your security configuration before going live.
-
-## ⚙️ Environment Setup
-
-### **📋 Step-by-Step Environment Configuration**
-
-Since `.env.example` files may not be available in some repositories, here's how to create your environment configuration from scratch:
-
-#### **🔧 For Development Setup**
-
-1. **Create `.env` file**:
-   ```bash
-   # Navigate to project directory
-   cd tautulli-history-exporter
-   
-   # Create environment file
-   touch .env  # Linux/Mac
-   # or
-   New-Item .env  # Windows PowerShell
-   ```
-
-2. **Add development configuration**:
-   ```bash
-   # Copy and paste this into your .env file:
-   
-   # Development Environment Configuration
-   # ====================================
-   
-   # Flask secret key (generate new one for production!)
-   SECRET_KEY=dev-secret-key-change-for-production-use
-   
-   # Development database (SQLite for simplicity)
-   DATABASE_URL=sqlite:///tautulli_exporter.db
-   
-   # Development settings
-   FLASK_ENV=development
-   FLASK_DEBUG=true
-   
-   # Optional: Redis (leave empty to use in-memory sessions)
-   REDIS_URL=
-   
-   # Development security (relaxed for testing)
-   RATE_LIMIT=1000
-   SESSION_TIMEOUT=480
-   ```
-
-3. **Run development server**:
-   ```bash
-   python app.py
-   # Access at http://localhost:5000
-   ```
-
-#### **🚀 For Production Setup**
-
-1. **Create production `.env` file**:
-   ```bash
-   # Create environment file
-   touch .env  # Linux/Mac
-   # or  
-   New-Item .env  # Windows PowerShell
-   ```
-
-2. **Generate secure secrets**:
-   ```bash
-   # Generate SECRET_KEY (64 characters)
-   python -c "import secrets; print('SECRET_KEY=' + secrets.token_hex(32))"
-   
-   # Generate secure database password
-   python -c "import secrets, string; chars=string.ascii_letters+string.digits+'!@#$%^&*()'; print('POSTGRES_PASSWORD=' + ''.join(secrets.choice(chars) for i in range(20)))"
-   ```
-
-3. **Add production configuration**:
-   ```bash
-   # Copy the generated values above, then add this complete configuration:
-   
-   # Production Environment Configuration
-   # ===================================
-   
-   # CRITICAL: Use the generated values from step 2
-   SECRET_KEY=YOUR_GENERATED_64_CHAR_SECRET_HERE
-   POSTGRES_PASSWORD=YOUR_GENERATED_SECURE_PASSWORD_HERE
-   
-   # Production database (auto-configured for Docker)
-   DATABASE_URL=postgresql://tautulli_user:${POSTGRES_PASSWORD}@db:5432/tautulli_exporter
-   
-   # Redis session storage (auto-configured for Docker)
-   REDIS_URL=redis://redis:6379/0
-   
-   # Production settings (CRITICAL - never change these)
-   FLASK_ENV=production
-   FLASK_DEBUG=false
-   
-   # Application settings
-   HOST=0.0.0.0
-   PORT=5000
-   
-   # Security settings
-   RATE_LIMIT=100
-   SESSION_TIMEOUT=60
-   MAX_EXPORT_ITEMS=10000
-   SECURITY_HEADERS=true
-   
-   # Reverse proxy settings (if using Nginx/Apache)
-   REVERSE_PROXY=true
-   FORCE_HTTPS=true
-   ```
-
-4. **Validate configuration**:
-   ```bash
-   # Test environment loading
-   python -c "
-   from dotenv import load_dotenv
-   import os
-   load_dotenv()
-   
-   # Check critical settings
-   secret = os.getenv('SECRET_KEY', '')
-   if len(secret) >= 32:
-       print('✅ SECRET_KEY length OK')
-   else:
-       print('❌ SECRET_KEY too short (need 32+ chars)')
-   
-   if os.getenv('FLASK_DEBUG', '').lower() != 'true':
-       print('✅ DEBUG disabled (production safe)')
-   else:
-       print('⚠️  DEBUG enabled (only for development)')
-   
-   if os.getenv('POSTGRES_PASSWORD'):
-       print('✅ Database password set')
-   else:
-       print('❌ Database password missing')
-   "
-   ```
-
-#### **🐳 For Docker Deployment**
-
-1. **Create `.env` file** (same as production setup above)
-
-2. **Deploy with Docker**:
-   ```bash
-   # Start all services
-   docker-compose up -d
-   
-   # Check service health
-   docker-compose ps
-   
-   # View logs if needed
-   docker-compose logs web
-   ```
-
-3. **Verify deployment**:
-   ```bash
-   # Test application
-   curl http://localhost:5000
-   
-   # Check database connection
-   docker-compose exec web python -c "
-   from app import db
-   try:
-       db.engine.execute('SELECT 1')
-       print('✅ Database connection OK')
-   except:
-       print('❌ Database connection failed')
-   "
-   ```
-
-### **🔒 Security Validation Checklist**
-
-Before deploying to production, verify these settings in your `.env` file:
+#### **Step 3: Create Environment File**
+Create a `.env` file with your generated values:
 
 ```bash
-# Run this validation script:
+# Create .env file
+touch .env  # Linux/Mac
+# or
+New-Item .env  # Windows PowerShell
+```
+
+Copy this configuration into your `.env` file, **replacing the values with your generated secrets**:
+
+```bash
+# Production Environment Configuration
+# ===================================
+
+# CRITICAL: Replace with your generated values from Step 2
+SECRET_KEY=PASTE_YOUR_GENERATED_SECRET_KEY_HERE
+POSTGRES_PASSWORD=PASTE_YOUR_GENERATED_PASSWORD_HERE
+
+# Production database (auto-configured)
+DATABASE_URL=postgresql://tautulli_user:${POSTGRES_PASSWORD}@db:5432/tautulli_exporter
+
+# Redis session storage (auto-configured)
+REDIS_URL=redis://redis:6379/0
+
+# Production settings (do not change)
+FLASK_ENV=production
+FLASK_DEBUG=false
+HOST=0.0.0.0
+PORT=5000
+
+# Security settings
+RATE_LIMIT=100
+SESSION_TIMEOUT=60
+MAX_EXPORT_ITEMS=10000
+SECURITY_HEADERS=true
+```
+
+#### **Step 4: Deploy with Docker**
+```bash
+# Start all services
+docker-compose up -d
+
+# Verify deployment
+docker-compose ps
+```
+
+#### **Step 5: Configure Application**
+1. **Access the application**: Open http://localhost:5000
+2. **Login**: Use `admin` / `admin` (you'll be forced to change this)
+3. **Change password**: Create a strong admin password
+4. **Configure Tautulli**:
+   - Get your API key: Tautulli → Settings → Web Interface → API → Show API Key
+   - Enter your Tautulli URL: `http://your-tautulli-server:8181`
+   - Enter your API key and test the connection
+   - Save configuration
+
+#### **Step 6: Validate Security**
+Run this security check to ensure proper configuration:
+
+```bash
 python -c "
 import os
 from dotenv import load_dotenv
@@ -250,98 +128,39 @@ print('=' * 40)
 # Check SECRET_KEY
 secret = os.getenv('SECRET_KEY', '')
 if len(secret) >= 64:
-    print('✅ SECRET_KEY: Strong (64+ chars)')
-elif len(secret) >= 32:
-    print('⚠️  SECRET_KEY: Acceptable (32+ chars)')
+    print('✅ SECRET_KEY: Strong')
 else:
-    print('❌ SECRET_KEY: Too weak (need 32+ chars)')
+    print('❌ SECRET_KEY: Too weak')
 
 # Check database password
 db_pass = os.getenv('POSTGRES_PASSWORD', '')
 if len(db_pass) >= 16:
-    print('✅ DB Password: Strong (16+ chars)')
+    print('✅ Database Password: Strong')
 else:
-    print('❌ DB Password: Too weak (need 16+ chars)')
+    print('❌ Database Password: Too weak')
 
 # Check debug mode
-debug = os.getenv('FLASK_DEBUG', '').lower()
-if debug != 'true':
-    print('✅ Debug Mode: Disabled (production safe)')
+if os.getenv('FLASK_DEBUG', '').lower() != 'true':
+    print('✅ Debug Mode: Disabled (secure)')
 else:
     print('❌ Debug Mode: Enabled (security risk!)')
 
-# Check environment
-env = os.getenv('FLASK_ENV', '')
-if env == 'production':
-    print('✅ Environment: Production')
-else:
-    print('⚠️  Environment: ' + (env or 'not set'))
-
 print('=' * 40)
-print('Review any ❌ or ⚠️  items before deployment!')
+print('✅ Ready for production!' if all([len(secret) >= 64, len(db_pass) >= 16, os.getenv('FLASK_DEBUG', '').lower() != 'true']) else '❌ Fix security issues before deployment')
 "
 ```
 
-### **📁 Environment File Reference**
+### **� Additional Security (Recommended)**
 
-| File | Purpose | Include in Git? |
-|------|---------|----------------|
-| `.env` | Your actual secrets | ❌ **NO** (security risk) |
-| `.env.example` | Template with safe defaults | ✅ Yes (if available) |
-| `.env.production` | Production template | ✅ Yes (if available) |
+For internet-facing deployments, set up a reverse proxy with HTTPS:
 
-**⚠️ NEVER commit your actual `.env` file to Git!** It contains sensitive secrets.
+📖 **See `PRODUCTION.md`** for detailed guides on:
+- Nginx/Apache reverse proxy setup
+- SSL/TLS certificate configuration
+- Cloud platform deployment
+- Advanced monitoring and logging
 
-## ⚙️ Configuration
-
-### **Environment Variables Summary**
-
-💡 **For detailed step-by-step setup instructions, see the [Environment Setup](#-environment-setup) section above.**
-
-**Quick Reference - Required Variables:**
-
-```bash
-# Security (REQUIRED)
-SECRET_KEY=your-super-secret-key-64-chars-min
-POSTGRES_PASSWORD=your-secure-database-password
-
-# Database (Auto-configured in Docker)
-DATABASE_URL=postgresql://tautulli_user:${POSTGRES_PASSWORD}@db:5432/tautulli_exporter
-
-# Redis Session Storage (Auto-configured)
-REDIS_URL=redis://redis:6379/0
-
-# Application Settings
-FLASK_ENV=production
-FLASK_DEBUG=false
-```
-
-### **Security Requirements**
-
-⚠️ **CRITICAL**: Before production deployment:
-
-1. **Generate Strong Secrets**:
-   ```bash
-   # Generate SECRET_KEY (Linux/Mac)
-   python -c "import secrets; print(secrets.token_hex(32))"
-   
-   # Generate SECRET_KEY (Windows PowerShell)
-   python -c "import secrets; print(secrets.token_hex(32))"
-   ```
-
-2. **Secure Database Password**: Use 16+ character password with mixed case, numbers, symbols
-
-3. **Change Default Credentials**: Login as `admin`/`admin` and change immediately
-
-### **Tautulli Configuration**
-
-1. **Get API Key**: 
-   - Tautulli → Settings → Web Interface → API → Show API Key
-   
-2. **Configure Access**:
-   - URL: `http://your-tautulli-server:8181`
-   - API Key: Your copied API key
-   - Test connection before saving
+🔒 **Use `SECURITY-CHECKLIST.md`** to validate your complete security configuration.
 
 ## 📊 Data Export Features
 
@@ -376,41 +195,7 @@ The exported CSV includes comprehensive watch data:
 - 🎬 **Movies**: Full title display
 - 🎵 **Music**: Track and artist details
 
-## 🛠️ Development
-
-### **Local Development Setup**
-
-```bash
-# 1. Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or
-venv\Scripts\activate     # Windows
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Setup environment
-cp .env.example .env
-# Edit .env with development settings
-
-# 4. Initialize database
-python -c "from app import db; db.create_all()"
-
-# 5. Run development server
-python app.py
-```
-
-### **Development Environment Variables**
-
-```bash
-SECRET_KEY=dev-secret-key-not-for-production
-DATABASE_URL=sqlite:///tautulli_exporter.db
-FLASK_ENV=development
-FLASK_DEBUG=true
-```
-
-### **Project Structure**
+## 🛠️ Project Structure
 
 ```
 tautulli-history-exporter/
@@ -425,7 +210,7 @@ tautulli-history-exporter/
 │   ├── config.html     # Tautulli configuration
 │   └── login.html      # Authentication form
 ├── static/             # CSS, JS, images
-├── PRODUCTION.md       # Deployment guide
+├── PRODUCTION.md       # Advanced deployment guide
 ├── SECURITY-CHECKLIST.md # Security validation
 └── README.md          # This file
 ```
@@ -437,105 +222,132 @@ tautulli-history-exporter/
 - `get_history`: Fetch watch history with filtering
 - Connection testing and validation
 
-**Rate Limiting:**
-- API calls are rate-limited to prevent abuse
+**Security Features:**
+- Rate limiting prevents API abuse
 - Automatic retry logic for failed requests
-- Error handling for API timeouts
+- Comprehensive error handling
 
 ## 🔧 Troubleshooting
 
-### **Common Issues & Solutions**
+### **Deployment Issues**
+
+#### **🐳 Docker Problems**
+
+**Issue**: Containers won't start
+```bash
+# Check service status
+docker-compose ps
+
+# View error logs
+docker-compose logs
+
+# Restart services
+docker-compose down && docker-compose up -d
+```
+
+**Issue**: Database connection errors
+```bash
+# Verify .env file exists and has correct values
+cat .env | grep -E "(SECRET_KEY|POSTGRES_PASSWORD)"
+
+# Check PostgreSQL container health
+docker-compose exec db pg_isready -U tautulli_user
+
+# Reset database if needed
+docker-compose down -v && docker-compose up -d
+```
 
 #### **🔌 Connection Problems**
 
-**Problem**: Can't connect to Tautulli
+**Issue**: Can't connect to Tautulli
 ```
 ✅ Solutions:
 • Verify Tautulli URL format: http://ip-address:port
 • Check API key in Tautulli Settings → Web Interface → API
-• Ensure Tautulli is accessible from Docker container network
-• Test with: docker exec -it container_name curl http://tautulli-url/api/v2?apikey=KEY&cmd=get_user_names
+• Ensure Tautulli is accessible from Docker network:
+  docker-compose exec web curl http://your-tautulli-server:8181/api/v2?apikey=KEY&cmd=get_user_names
 ```
 
-**Problem**: Database connection errors
-```
-✅ Solutions:
-• Check POSTGRES_PASSWORD in .env file
-• Restart containers: docker-compose down && docker-compose up -d
-• Verify PostgreSQL container health: docker-compose ps
-```
-
-#### **👤 User & Data Issues**
-
-**Problem**: No users in dropdown
+**Issue**: No users in dropdown
 ```
 ✅ Solutions:
 • Test Tautulli connection in Configuration page
 • Verify API key has proper permissions
 • Check Tautulli has users with watch history
-• Review application logs: docker-compose logs web
+• Review logs: docker-compose logs web
 ```
 
-**Problem**: Date filtering not working
+#### **💾 Data Export Problems**
+
+**Issue**: CSV download fails
 ```
 ✅ Solutions:
-• Dates are filtered server-side (not Tautulli API limitation)
-• Ensure date format is correct (YYYY-MM-DD)
-• Check timezone settings in browser
-```
-
-#### **💾 Export Problems**
-
-**Problem**: CSV download fails
-```
-✅ Solutions:
-• Verify data exists in history table
-• Check browser popup/download blocker settings
+• Verify data exists (check user history in Tautulli)
+• Check browser popup/download settings
 • Try smaller date range or result limit
-• Clear browser cache and cookies
+• Clear browser cache and restart containers
+```
+
+**Issue**: Date filtering not working
+```
+✅ Solutions:
+• Dates are filtered server-side after API retrieval
+• Ensure proper date format (YYYY-MM-DD)
+• Check browser timezone settings
 ```
 
 #### **🔒 Security & Authentication**
 
-**Problem**: Login issues after password change
+**Issue**: Can't login after password change
 ```
 ✅ Solutions:
 • Clear browser cookies and cache
-• Restart application containers
-• Check session storage (Redis) health
+• Restart containers: docker-compose restart
+• Check Redis health: docker-compose exec redis redis-cli ping
 ```
 
-**Problem**: Rate limiting blocking requests
+**Issue**: Rate limiting blocking requests
 ```
 ✅ Solutions:
-• Wait for rate limit window to reset (1 minute)
-• Reduce request frequency
-• Check logs for rate limit violations
+• Wait 1 minute for rate limit reset
+• Check logs: docker-compose logs web | grep "rate limit"
+• Adjust RATE_LIMIT in .env if needed
 ```
 
-### **🐛 Debug Mode**
+### **� Health Monitoring**
 
-Enable debug logging by setting in `.env`:
+Check application health with these commands:
+
 ```bash
-FLASK_DEBUG=true
-FLASK_ENV=development
-```
-
-### **📋 Health Checks**
-
-Monitor application health:
-```bash
-# Check container status
+# Overall system status
 docker-compose ps
 
-# View application logs
+# Application logs
 docker-compose logs -f web
 
-# Test database connection
-docker-compose exec db psql -U tautulli_user -d tautulli_exporter -c "SELECT COUNT(*) FROM users;"
+# Database connection test
+docker-compose exec db psql -U tautulli_user -d tautulli_exporter -c "SELECT version();"
 
-# Test Redis connection
+# Redis connection test
 docker-compose exec redis redis-cli ping
+
+# Web application health
+curl -f http://localhost:5000 || echo "Web service down"
+```
+
+### **📋 Performance Optimization**
+
+For high-traffic deployments:
+
+```bash
+# Monitor resource usage
+docker stats
+
+# Increase rate limits in .env
+RATE_LIMIT=500
+
+# Add more worker processes (edit docker-compose.yml)
+command: gunicorn --workers 4 --bind 0.0.0.0:5000 app:app
 ```
 
 ## 🔐 Security & Production
