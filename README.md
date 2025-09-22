@@ -285,6 +285,28 @@ docker-compose down -v && docker-compose up -d
 
 #### **🔒 Security & Authentication**
 
+**Issue**: Default login (admin/admin) not prompting password change
+```
+✅ Solutions:
+• Check if database is properly initialized:
+  docker-compose logs web | grep "Database initialization"
+• Manually reset the admin user:
+  docker-compose exec web python -c "
+  from app import app, db, User
+  from werkzeug.security import generate_password_hash
+  with app.app_context():
+      admin = User.query.filter_by(username='admin').first()
+      if admin:
+          admin.must_change_password = True
+          db.session.commit()
+          print('Admin user reset to require password change')
+      else:
+          print('Admin user not found')
+  "
+• Full database reset if needed:
+  docker-compose down -v && docker-compose up -d
+```
+
 **Issue**: Can't login after password change
 ```
 ✅ Solutions:

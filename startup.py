@@ -77,6 +77,7 @@ def init_database():
     """Initialize database with proper error handling"""
     try:
         with app.app_context():
+            logger.info(f"Database URL: {app.config['SQLALCHEMY_DATABASE_URI']}")
             logger.info("Creating database tables...")
             db.create_all()
             
@@ -93,7 +94,11 @@ def init_database():
                 logger.info("Default admin user created (admin/admin)")
                 logger.warning("SECURITY: Please change the default password immediately!")
             else:
-                logger.info("Admin user already exists")
+                admin_user = User.query.filter_by(username='admin').first()
+                if admin_user:
+                    logger.info(f"Admin user exists, must_change_password: {admin_user.must_change_password}")
+                else:
+                    logger.info("Users exist but no admin user found")
             
             logger.info("Database initialization complete")
             return True
