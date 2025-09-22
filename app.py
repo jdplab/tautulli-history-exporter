@@ -40,11 +40,13 @@ if os.environ.get('SECURITY_HEADERS', 'true').lower() == 'true':
              strict_transport_security=True,
              content_security_policy=csp)
 
-# Rate Limiting
+# Rate Limiting with Redis storage
+redis_url = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
 limiter = Limiter(
     app,
     key_func=get_remote_address,
-    default_limits=[f"{os.environ.get('RATE_LIMIT', 100)} per minute"]
+    default_limits=[f"{os.environ.get('RATE_LIMIT', 100)} per minute"],
+    storage_uri=redis_url
 )
 
 # Logging Configuration
