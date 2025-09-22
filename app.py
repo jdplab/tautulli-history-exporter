@@ -42,7 +42,7 @@ if os.environ.get('SECURITY_HEADERS', 'true').lower() == 'true':
 
 # Rate Limiting
 limiter = Limiter(
-    app,
+    app=app,
     key_func=get_remote_address,
     default_limits=[f"{os.environ.get('RATE_LIMIT', 100)} per minute"]
 )

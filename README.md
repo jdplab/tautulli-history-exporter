@@ -48,32 +48,14 @@ cd tautulli-history-exporter
 
 #### **Step 2: Generate Secure Configuration**
 ```bash
-# Generate SECRET_KEY (copy the output)
-python -c "import secrets; print('SECRET_KEY=' + secrets.token_hex(32))"
+# Generate SECRET_KEY and save to .env
+python3 -c "import secrets; print('SECRET_KEY=' + secrets.token_hex(32))" > .env
 
-# Generate database password (copy the output)
-python -c "import secrets, string; chars=string.ascii_letters+string.digits+'!@#$%^&*()'; print('POSTGRES_PASSWORD=' + ''.join(secrets.choice(chars) for i in range(20)))"
-```
+# Generate database password and append to .env
+python3 -c "import secrets, string; chars=string.ascii_letters+string.digits; print('POSTGRES_PASSWORD=' + ''.join(secrets.choice(chars) for i in range(20)))" >> .env
 
-#### **Step 3: Create Environment File**
-Create a `.env` file with your generated values:
-
-```bash
-# Create .env file
-touch .env  # Linux/Mac
-# or
-New-Item .env  # Windows PowerShell
-```
-
-Copy this configuration into your `.env` file, **replacing the values with your generated secrets**:
-
-```bash
-# Production Environment Configuration
-# ===================================
-
-# CRITICAL: Replace with your generated values from Step 2
-SECRET_KEY=PASTE_YOUR_GENERATED_SECRET_KEY_HERE
-POSTGRES_PASSWORD=PASTE_YOUR_GENERATED_PASSWORD_HERE
+# Add the rest of the production configuration
+cat >> .env << 'EOF'
 
 # Production database (auto-configured)
 DATABASE_URL=postgresql://tautulli_user:${POSTGRES_PASSWORD}@db:5432/tautulli_exporter
@@ -92,9 +74,14 @@ RATE_LIMIT=100
 SESSION_TIMEOUT=60
 MAX_EXPORT_ITEMS=10000
 SECURITY_HEADERS=true
+EOF
+
+# Verify your .env file was created correctly
+echo "✅ Generated .env file:"
+cat .env
 ```
 
-#### **Step 4: Deploy with Docker**
+#### **Step 3: Deploy with Docker**
 ```bash
 # Start all services
 docker-compose up -d
@@ -103,7 +90,7 @@ docker-compose up -d
 docker-compose ps
 ```
 
-#### **Step 5: Configure Application**
+#### **Step 4: Configure Application**
 1. **Access the application**: Open http://localhost:5000
 2. **Login**: Use `admin` / `admin` (you'll be forced to change this)
 3. **Change password**: Create a strong admin password
@@ -113,7 +100,7 @@ docker-compose ps
    - Enter your API key and test the connection
    - Save configuration
 
-#### **Step 6: Validate Security**
+#### **Step 5: Validate Security**
 Run this security check to ensure proper configuration:
 
 ```bash
