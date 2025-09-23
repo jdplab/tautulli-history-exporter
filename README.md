@@ -56,10 +56,10 @@ This project was developed with assistance from AI tools (GitHub Copilot and Cla
 2. **Generate security keys**
    ```powershell
    # Generate SECRET_KEY and save to .env
-   python -c "import secrets; print('SECRET_KEY=' + secrets.token_hex(32))" | Out-File -FilePath .env -Encoding utf8
+   "SECRET_KEY=" + (-join ((1..64) | ForEach {'{0:X}' -f (Get-Random -Max 16)})) | Out-File -FilePath .env -Encoding utf8
    
    # Generate database password and append to .env
-   python -c "import secrets, string; chars=string.ascii_letters+string.digits; print('POSTGRES_PASSWORD=' + ''.join(secrets.choice(chars) for i in range(20)))" | Out-File -FilePath .env -Append -Encoding utf8
+   "POSTGRES_PASSWORD=" + (-join ((1..20) | ForEach {[char]((65..90) + (97..122) + (48..57) | Get-Random)})) | Out-File -FilePath .env -Append -Encoding utf8
    ```
 
 3. **Add the rest of the configuration**
@@ -104,10 +104,10 @@ This project was developed with assistance from AI tools (GitHub Copilot and Cla
 2. **Generate security keys**
    ```bash
    # Generate SECRET_KEY and save to .env
-   python3 -c "import secrets; print('SECRET_KEY=' + secrets.token_hex(32))" > .env
+   echo "SECRET_KEY=$(openssl rand -hex 32)" > .env
    
    # Generate database password and append to .env
-   python3 -c "import secrets, string; chars=string.ascii_letters+string.digits; print('POSTGRES_PASSWORD=' + ''.join(secrets.choice(chars) for i in range(20)))" >> .env
+   echo "POSTGRES_PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-20)" >> .env
    ```
 
 3. **Add the rest of the configuration**
