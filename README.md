@@ -28,6 +28,25 @@ A modern, production-ready web application to export watch history from Tautulli
 - **Scalability**: Redis caching and optimized database queries
 - **Docker Support**: Complete containerized deployment with orchestration
 
+## 🤖 Development & AI Assistance
+
+This project was developed with significant assistance from AI tools to ensure best practices, security, and code quality:
+
+### **🔧 AI-Enhanced Development**
+- **Code Architecture**: AI-assisted design of Flask application structure and security patterns
+- **Security Implementation**: AI-guided implementation of authentication, rate limiting, and CSP policies
+- **UI/UX Design**: AI-generated responsive Bootstrap templates with modern design principles
+- **Documentation**: Comprehensive README and deployment guides created with AI assistance
+- **Error Handling**: Robust error handling and logging patterns developed with AI guidance
+
+### **🛡️ Security & Best Practices**
+- **Production Hardening**: AI-recommended security headers, input validation, and session management
+- **Docker Configuration**: AI-optimized containerization with proper health checks and networking
+- **Environment Management**: Secure environment variable handling and configuration patterns
+- **Code Quality**: AI-assisted code review for maintainability and performance optimization
+
+> **Transparency Note**: This application leverages AI assistance for development, ensuring modern best practices, security standards, and comprehensive documentation. All AI-generated code has been reviewed, tested, and validated for production use.
+
 ## 🚀 Production Deployment
 
 This application is designed for production use with Docker. Follow these steps for a secure, production-ready deployment.
@@ -527,6 +546,12 @@ Contributions welcome! Please:
 - **Last Updated**: September 2025
 - **Python**: 3.11+ supported
 - **Docker**: 20.10+ recommended
+
+---
+
+## 🙏 Acknowledgments
+
+**AI Development Assistant**: This project was developed with assistance from GitHub Copilot and Claude AI, ensuring modern best practices, comprehensive security, and professional documentation standards.
 
 ---
 
