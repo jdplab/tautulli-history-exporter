@@ -92,7 +92,27 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
     must_change_password = db.Column(db.Boolean, default=True)
+    role = db.Column(db.String(20), default='user')  # 'admin' or 'user'
+    allowed_tautulli_users = db.Column(db.Text, default='[]')  # JSON array of usernames
+    is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def get_allowed_users(self):
+        """Get list of allowed Tautulli usernames for this user"""
+        import json
+        try:
+            return json.loads(self.allowed_tautulli_users)
+        except:
+            return []
+    
+    def set_allowed_users(self, usernames):
+        """Set allowed Tautulli usernames for this user"""
+        import json
+        self.allowed_tautulli_users = json.dumps(usernames)
+    
+    def is_admin(self):
+        """Check if user is an admin"""
+        return self.role == 'admin'
 
 class Configuration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -110,6 +130,34 @@ def is_logged_in():
         bool: True if user is logged in (user_id in session), False otherwise
     """
     return 'user_id' in session
+
+def require_admin(f):
+    """Decorator to require admin role for route access"""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not is_logged_in():
+            flash('Please log in to access this page.', 'error')
+            return redirect(url_for('login'))
+        
+        user = User.query.get(session['user_id'])
+        if not user or not user.is_admin():
+            flash('Admin access required.', 'error')
+            return redirect(url_for('dashboard'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+def get_current_user():
+    """Get the current logged-in user object"""
+    if is_logged_in():
+        return User.query.get(session['user_id'])
+    return None
+
+@app.context_processor
+def inject_user():
+    """Make current user available in all templates"""
+    return dict(current_user=get_current_user())
 
 def get_configuration():
     """
@@ -324,6 +372,18 @@ def get_user_history(url, api_key, user_id, start_date=None, end_date=None, medi
 # Routes
 @app.route('/')
 def index():
+    """
+    Main dashboard route with authentication and configuration checks.
+    
+    Redirects users through the following flow:
+    1. Not logged in -> login page
+    2. Must change password -> password change page  
+    3. No Tautulli config -> configuration page
+    4. All checks pass -> dashboard
+    
+    Returns:
+        Response: Dashboard template or redirect to appropriate page
+    """
     if not is_logged_in():
         return redirect(url_for('login'))
     
@@ -341,6 +401,19 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")  # Prevent brute force attacks
 def login():
+    """
+    User authentication route with brute force protection.
+    
+    GET: Displays login form
+    POST: Processes login credentials with the following validation:
+    - Rate limiting (10 attempts per minute)
+    - Password verification using secure hashing
+    - Session creation on successful authentication
+    - Redirect to dashboard or intended destination
+    
+    Returns:
+        Response: Login template (GET) or redirect to dashboard (POST success)
+    """
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -368,6 +441,22 @@ def login():
 @app.route('/change_password', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")  # Prevent password change abuse
 def change_password():
+    """
+    Password change route with support for forced and voluntary changes.
+    
+    Handles two scenarios:
+    1. Forced password change (new users or admin reset)
+    2. Voluntary password change (requires current password)
+    
+    Features:
+    - Rate limiting (5 attempts per minute)
+    - Current password verification for voluntary changes
+    - Secure password hashing
+    - Session preservation after password change
+    
+    Returns:
+        Response: Password change form or redirect to dashboard on success
+    """
     if not is_logged_in():
         return redirect(url_for('login'))
     
@@ -413,6 +502,7 @@ def change_password():
     return render_template('change_password.html', forced_change=forced_change)
 
 @app.route('/configuration', methods=['GET', 'POST'])
+@require_admin
 def configuration():
     """
     Configuration management route for Tautulli connection settings.
@@ -473,6 +563,7 @@ def get_users():
     AJAX endpoint to retrieve Tautulli user list.
     
     Fetches all users from configured Tautulli server for filtering purposes.
+    For non-admin users, only returns users they have permission to access.
     Returns JSON response with user data or error message.
     
     Returns:
@@ -485,8 +576,22 @@ def get_users():
     if not config.tautulli_url or not config.api_key:
         return jsonify({'success': False, 'message': 'Tautulli not configured'})
     
-    users = get_tautulli_users(config.tautulli_url, config.api_key)
-    return jsonify({'success': True, 'users': users})
+    # Get current user to check permissions
+    current_user = get_current_user()
+    
+    # Get all Tautulli users
+    all_users = get_tautulli_users(config.tautulli_url, config.api_key)
+    
+    # Filter users based on permissions
+    if current_user.is_admin():
+        # Admin can see all users
+        filtered_users = all_users
+    else:
+        # Regular user can only see allowed users
+        allowed_usernames = current_user.get_allowed_users()
+        filtered_users = [user for user in all_users if user.get('friendly_name') in allowed_usernames]
+    
+    return jsonify({'success': True, 'users': filtered_users})
 
 @app.route('/get_history', methods=['POST'])
 def get_history():
@@ -754,10 +859,196 @@ def create_tables():
             default_user = User(
                 username='admin',
                 password_hash=generate_password_hash('admin'),
+                role='admin',
                 must_change_password=True
             )
             db.session.add(default_user)
             db.session.commit()
+
+@app.route('/user_management')
+@require_admin
+def user_management():
+    """
+    Display user management interface for admins.
+    
+    Returns:
+        Response: Rendered user management template with list of users
+    """
+    users = User.query.order_by(User.created_at.desc()).all()
+    return render_template('user_management.html', users=users)
+
+@app.route('/add_user', methods=['POST'])
+@require_admin
+def add_user():
+    """
+    Add a new user to the system.
+    
+    Returns:
+        Response: Redirect to user management page with success/error message
+    """
+    try:
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        role = request.form.get('role', 'user')
+        is_active = 'is_active' in request.form
+        allowed_users = request.form.getlist('allowed_users')
+        
+        if not username or not password:
+            flash('Username and password are required.', 'error')
+            return redirect(url_for('user_management'))
+        
+        # Check if username already exists
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists.', 'error')
+            return redirect(url_for('user_management'))
+        
+        # Create new user
+        user = User(
+            username=username,
+            password_hash=generate_password_hash(password),
+            role=role,
+            is_active=is_active,
+            must_change_password=True
+        )
+        
+        # Set allowed users for non-admin users
+        if role != 'admin':
+            user.set_allowed_users(allowed_users)
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        flash(f'User "{username}" created successfully.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error creating user: {str(e)}', 'error')
+    
+    return redirect(url_for('user_management'))
+
+@app.route('/edit_user', methods=['POST'])
+@require_admin
+def edit_user():
+    """
+    Edit an existing user.
+    
+    Returns:
+        Response: Redirect to user management page with success/error message
+    """
+    try:
+        user_id = request.form.get('user_id')
+        username = request.form.get('username', '').strip()
+        role = request.form.get('role', 'user')
+        is_active = 'is_active' in request.form
+        reset_password = 'reset_password' in request.form
+        allowed_users = request.form.getlist('allowed_users')
+        
+        user = User.query.get(user_id)
+        if not user:
+            flash('User not found.', 'error')
+            return redirect(url_for('user_management'))
+        
+        # Check if username already exists (excluding current user)
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user and existing_user.id != user.id:
+            flash('Username already exists.', 'error')
+            return redirect(url_for('user_management'))
+        
+        # Update user
+        user.username = username
+        user.role = role
+        user.is_active = is_active
+        
+        if reset_password:
+            user.must_change_password = True
+        
+        # Set allowed users for non-admin users
+        if role != 'admin':
+            user.set_allowed_users(allowed_users)
+        else:
+            user.set_allowed_users([])  # Clear allowed users for admin
+        
+        db.session.commit()
+        
+        flash(f'User "{username}" updated successfully.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error updating user: {str(e)}', 'error')
+    
+    return redirect(url_for('user_management'))
+
+@app.route('/delete_user', methods=['POST'])
+@require_admin
+def delete_user():
+    """
+    Delete a user from the system.
+    
+    Returns:
+        Response: Redirect to user management page with success/error message
+    """
+    try:
+        user_id = request.form.get('user_id')
+        user = User.query.get(user_id)
+        
+        if not user:
+            flash('User not found.', 'error')
+            return redirect(url_for('user_management'))
+        
+        # Prevent deleting the last admin
+        if user.is_admin():
+            admin_count = User.query.filter_by(role='admin').count()
+            if admin_count <= 1:
+                flash('Cannot delete the last admin user.', 'error')
+                return redirect(url_for('user_management'))
+        
+        username = user.username
+        db.session.delete(user)
+        db.session.commit()
+        
+        flash(f'User "{username}" deleted successfully.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting user: {str(e)}', 'error')
+    
+    return redirect(url_for('user_management'))
+
+@app.route('/api/tautulli_users')
+def api_tautulli_users():
+    """
+    API endpoint to get list of Tautulli users for user management.
+    
+    Returns:
+        JSON: List of Tautulli users or error message
+    """
+    try:
+        config = get_configuration()
+        if not config.tautulli_url or not config.api_key:
+            return jsonify({'error': 'Tautulli not configured'})
+        
+        # Get users from Tautulli API
+        response = requests.get(
+            f"{config.tautulli_url}/api/v2",
+            params={
+                'apikey': config.api_key,
+                'cmd': 'get_users'
+            },
+            timeout=10
+        )
+        response.raise_for_status()
+        
+        data = response.json()
+        if data.get('response', {}).get('result') == 'success':
+            users = data.get('response', {}).get('data', [])
+            return jsonify({'users': users})
+        else:
+            return jsonify({'error': 'Failed to get users from Tautulli'})
+            
+    except requests.exceptions.RequestException as e:
+        return jsonify({'error': f'Connection error: {str(e)}'})
+    except Exception as e:
+        return jsonify({'error': f'Error: {str(e)}'})
 
 if __name__ == '__main__':
     create_tables()

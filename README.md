@@ -36,6 +36,10 @@ Ever wanted to export your Plex watch history but found Tautulli's built-in expo
 
 This project was developed with assistance from AI tools (GitHub Copilot and Claude) to ensure good coding practices and comprehensive documentation. All AI-generated code has been reviewed and tested.
 
+## 📚 Documentation
+
+- **[Technical Documentation](DOCUMENTATION.md)** - Architecture, API reference, and implementation details
+
 ## 🚀 How to Install
 
 ### Prerequisites

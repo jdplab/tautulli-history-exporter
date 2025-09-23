@@ -87,6 +87,7 @@ def init_database():
                 default_user = User(
                     username='admin',
                     password_hash=generate_password_hash('admin'),
+                    role='admin',
                     must_change_password=True
                 )
                 db.session.add(default_user)

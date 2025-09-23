@@ -3,6 +3,22 @@
 {% block title %}Dashboard - Tautulli History Exporter{% endblock %}
 
 {% block content %}
+<!-- 
+    Main Dashboard Interface
+    
+    This template provides the primary user interface for exporting Tautulli data:
+    - Filter controls for date range, users, media type, and watch completion
+    - Real-time preview of filtered results with pagination
+    - CSV export functionality with progress indication
+    - Permission-based filtering (users only see their assigned Tautulli users)
+    
+    Features:
+    - AJAX-powered filtering without page reloads
+    - Responsive design for mobile and desktop
+    - Loading states and error handling
+    - Accessibility compliance with keyboard navigation
+    - Permission enforcement via backend API
+-->
 <div class="row">
     <div class="col-12">
         <!-- Welcome Header -->
