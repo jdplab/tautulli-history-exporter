@@ -215,65 +215,107 @@ def get_user_history(url, api_key, user_id, start_date=None, end_date=None, medi
             url += '/'
         
         api_url = f"{url}api/v2"
+        all_history_items = []
         
-        # For date filtering, we need to retrieve more data and filter server-side
-        # since Tautulli API doesn't support date range filtering
-        api_length = length
-        if start_date or end_date:
-            # Get more data to ensure we have enough after filtering
-            api_length = min(length * 4, 1000)  # Get 4x requested amount, max 1000
-        
-        params = {
-            'apikey': api_key,
-            'cmd': 'get_history',
-            'user_id': user_id,
-            'length': api_length
-        }
-        
-        if media_type:
-            params['media_type'] = media_type
-        
-        response = requests.get(api_url, params=params, timeout=30)
-        data = response.json()
-        
-        if data.get('response', {}).get('result') == 'success':
-            history_items = data.get('response', {}).get('data', {}).get('data', [])
+        # For requests larger than 1000 items, we need to paginate
+        # Tautulli typically limits responses to around 1000 items per request
+        if length > 1000:
+            # Use pagination to get large datasets
+            page_size = 1000
+            start = 0
             
-            # Apply server-side date filtering if dates are specified
-            if start_date or end_date:
-                filtered_items = []
+            while len(all_history_items) < length:
+                items_to_fetch = min(page_size, length - len(all_history_items))
                 
-                # Convert date strings to timestamps for comparison
-                start_timestamp = None
-                end_timestamp = None
+                params = {
+                    'apikey': api_key,
+                    'cmd': 'get_history',
+                    'user_id': user_id,
+                    'start': start,
+                    'length': items_to_fetch
+                }
                 
-                if start_date:
-                    start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-                    start_timestamp = int(start_dt.timestamp())
-                    
-                if end_date:
-                    end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1) - timedelta(seconds=1)
-                    end_timestamp = int(end_dt.timestamp())
+                if media_type:
+                    params['media_type'] = media_type
                 
-                # Filter items by date
-                for item in history_items:
-                    item_date = int(item.get('date', 0))
-                    
-                    # Check if item falls within date range
-                    if start_timestamp and item_date < start_timestamp:
-                        continue
-                    if end_timestamp and item_date > end_timestamp:
-                        continue
-                        
-                    filtered_items.append(item)
+                response = requests.get(api_url, params=params, timeout=30)
+                data = response.json()
                 
-                # Return only the requested number of items after filtering
-                return filtered_items[:length]
-            else:
-                # No date filtering, return as requested
-                return history_items[:length]
+                if data.get('response', {}).get('result') != 'success':
+                    break
+                
+                page_items = data.get('response', {}).get('data', {}).get('data', [])
+                
+                # If we got no items, we've reached the end
+                if not page_items:
+                    break
+                
+                all_history_items.extend(page_items)
+                start += len(page_items)
+                
+                # If we got fewer items than requested, we've reached the end
+                if len(page_items) < items_to_fetch:
+                    break
+            
+            history_items = all_history_items[:length]
         else:
-            return []
+            # For smaller requests, use the existing logic
+            api_length = length
+            if start_date or end_date:
+                # Get more data to ensure we have enough after filtering
+                api_length = min(length * 4, 1000)  # Get 4x requested amount, max 1000
+            
+            params = {
+                'apikey': api_key,
+                'cmd': 'get_history',
+                'user_id': user_id,
+                'length': api_length
+            }
+            
+            if media_type:
+                params['media_type'] = media_type
+            
+            response = requests.get(api_url, params=params, timeout=30)
+            data = response.json()
+            
+            if data.get('response', {}).get('result') == 'success':
+                history_items = data.get('response', {}).get('data', {}).get('data', [])
+            else:
+                return []
+        
+        # Apply server-side date filtering if dates are specified
+        if start_date or end_date:
+            filtered_items = []
+            
+            # Convert date strings to timestamps for comparison
+            start_timestamp = None
+            end_timestamp = None
+            
+            if start_date:
+                start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+                start_timestamp = int(start_dt.timestamp())
+                
+            if end_date:
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1) - timedelta(seconds=1)
+                end_timestamp = int(end_dt.timestamp())
+            
+            # Filter items by date
+            for item in history_items:
+                item_date = int(item.get('date', 0))
+                
+                # Check if item falls within date range
+                if start_timestamp and item_date < start_timestamp:
+                    continue
+                if end_timestamp and item_date > end_timestamp:
+                    continue
+                    
+                filtered_items.append(item)
+            
+            # Return only the requested number of items after filtering
+            return filtered_items[:length]
+        else:
+            # No date filtering, return as requested
+            return history_items[:length]
     
     except Exception as e:
         app.logger.error(f"Error getting history: {e}")
@@ -476,6 +518,10 @@ def get_history():
     end_date = request.form.get('end_date')
     media_type = request.form.get('media_type')
     length = int(request.form.get('length', 25))
+    
+    # Validate export limit
+    if length > 10000:
+        return jsonify({'success': False, 'message': 'Export limit is 10,000 items maximum'})
     
     if not user_id:
         return jsonify({'success': False, 'message': 'User ID required'})
