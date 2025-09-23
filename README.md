@@ -40,6 +40,22 @@ This application is designed for production use with Docker. Follow these steps 
 
 ### **⚡ Quick Deployment**
 
+### **🔒 Security & Default Credentials**
+
+> **⚠️ CRITICAL SECURITY INFORMATION**
+> 
+> **Default Login Credentials:**
+> - **Username:** `admin`
+> - **Password:** `admin`
+> 
+> **SECURITY REQUIREMENTS:**
+> 1. ⚠️ **IMMEDIATELY change the default password** after first login
+> 2. 🔐 Use a **strong, unique password** (minimum 6 characters)
+> 3. 🛡️ Consider using **HTTPS with SSL certificates** in production
+> 4. 🚫 **Never leave default credentials** in production environments
+> 
+> The application will **force a password change** on first login for security.
+
 #### **Step 1: Clone Repository**
 ```bash
 git clone https://github.com/jdplab/tautulli-history-exporter
@@ -90,10 +106,18 @@ docker-compose up -d
 docker-compose ps
 ```
 
-#### **Step 4: Configure Application**
+#### **Step 4: Initial Login & Security Setup**
+
+> **⚠️ IMPORTANT - Default Credentials**
+> 
+> **Default Username:** `admin`  
+> **Default Password:** `admin`
+> 
+> ⚠️ **SECURITY NOTICE**: These are the default credentials created on first startup. You **MUST** change them immediately after first login for security reasons.
+
 1. **Access the application**: Open http://localhost:5000
-2. **Login**: Use `admin` / `admin` (you'll be forced to change this)
-3. **Change password**: Create a strong admin password
+2. **Login**: Use the default credentials above
+3. **Change password**: You'll be prompted to create a strong admin password immediately after login
 4. **Configure Tautulli**:
    - Get your API key: Tautulli → Settings → Web Interface → API → Show API Key
    - Enter your Tautulli URL: `http://your-tautulli-server:8181`
@@ -285,9 +309,10 @@ docker-compose down -v && docker-compose up -d
 
 #### **🔒 Security & Authentication**
 
-**Issue**: Default login (admin/admin) not prompting password change
+**Issue**: Having trouble with login credentials
 ```
 ✅ Solutions:
+• Use the default credentials: username=admin, password=admin
 • Check if database is properly initialized:
   docker-compose logs web | grep "Database initialization"
 • Manually reset the admin user:

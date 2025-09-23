@@ -11,6 +11,7 @@ import csv
 from io import StringIO
 import logging
 import secrets
+from sqlalchemy import text
 
 app = Flask(__name__)
 
@@ -248,38 +249,54 @@ def login():
             app.logger.warning(f'Failed login attempt for user: {username} from IP: {get_remote_address()}')
             flash('Invalid username or password', 'error')
     
-    # Check if admin user still has default password
-    admin_user = User.query.filter_by(username='admin').first()
-    show_default_creds = admin_user and admin_user.must_change_password if admin_user else False
-    
-    return render_template('login.html', show_default_creds=show_default_creds)
+    return render_template('login.html')
 
 @app.route('/change_password', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")  # Prevent password change abuse
 def change_password():
     if not is_logged_in():
         return redirect(url_for('login'))
     
+    user = User.query.get(session['user_id'])
+    forced_change = user.must_change_password
+    
     if request.method == 'POST':
+        # For voluntary password changes, require current password
+        if not forced_change:
+            current_password = request.form.get('current_password', '')
+            if not check_password_hash(user.password_hash, current_password):
+                flash('Current password is incorrect', 'error')
+                return render_template('change_password.html', forced_change=forced_change)
+        
         new_password = request.form['new_password']
         confirm_password = request.form['confirm_password']
         
         if new_password != confirm_password:
             flash('Passwords do not match', 'error')
-            return render_template('change_password.html')
+            return render_template('change_password.html', forced_change=forced_change)
         
         if len(new_password) < 6:
             flash('Password must be at least 6 characters long', 'error')
-            return render_template('change_password.html')
+            return render_template('change_password.html', forced_change=forced_change)
         
-        user = User.query.get(session['user_id'])
+        # Additional password strength validation
+        if new_password.lower() in ['password', '123456', 'admin', user.username.lower()]:
+            flash('Password is too common. Please choose a stronger password.', 'error')
+            return render_template('change_password.html', forced_change=forced_change)
+        
         user.password_hash = generate_password_hash(new_password)
         user.must_change_password = False
         db.session.commit()
         
+        app.logger.info(f'Password changed for user: {user.username} from IP: {get_remote_address()}')
         flash('Password changed successfully!', 'success')
-        return redirect(url_for('index'))
+        
+        if forced_change:
+            return redirect(url_for('index'))
+        else:
+            return redirect(url_for('index'))
     
-    return render_template('change_password.html')
+    return render_template('change_password.html', forced_change=forced_change)
 
 @app.route('/configuration', methods=['GET', 'POST'])
 def configuration():
@@ -408,7 +425,6 @@ def logout():
 def health_check():
     try:
         # Test database connection
-        from sqlalchemy import text
         db.session.execute(text('SELECT 1'))
         return jsonify({
             'status': 'healthy',
