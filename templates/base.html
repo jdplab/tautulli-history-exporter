@@ -56,6 +56,41 @@
             transform: translateY(-1px);
         }
 
+        /* Fix navbar dropdown z-index globally - comprehensive fix */
+        .navbar .dropdown-menu,
+        .navbar-nav .dropdown-menu,
+        .nav-item .dropdown-menu,
+        .dropdown-menu {
+            z-index: 99999 !important;
+            position: absolute !important;
+        }
+        
+        /* Ensure navbar itself has proper z-index - below modals */
+        .navbar {
+            z-index: 1040 !important;
+            position: relative !important;
+        }
+        
+        /* Lower z-index for other elements that might interfere */
+        .card,
+        .table-responsive {
+            z-index: 1 !important;
+        }
+
+        /* Ensure Bootstrap modals work properly */
+        .modal {
+            z-index: 1055 !important;
+        }
+        
+        .modal-backdrop {
+            z-index: 1050 !important;
+        }
+        
+        /* Toast container above everything */
+        .toast-container {
+            z-index: 99999 !important;
+        }
+
         .card {
             border: none;
             border-radius: var(--border-radius-modern);
@@ -234,9 +269,14 @@
                 <a class="nav-link" href="{{ url_for('index') }}">
                     <i class="bi bi-house me-1"></i>Dashboard
                 </a>
+                {% if current_user and current_user.is_admin() %}
                 <a class="nav-link" href="{{ url_for('configuration') }}">
                     <i class="bi bi-gear me-1"></i>Config
                 </a>
+                <a class="nav-link" href="{{ url_for('user_management') }}">
+                    <i class="bi bi-people me-1"></i>Users
+                </a>
+                {% endif %}
                 <div class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-person-circle me-1"></i>Account
@@ -273,7 +313,7 @@
     </div>
 
     <!-- Toast Container -->
-    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 99999;">
         <div id="errorToast" class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="d-flex">
                 <div class="toast-body">

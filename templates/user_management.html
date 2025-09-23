@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - Tautulli History Exporter{% endblock %}
+
+{% block content %}
+<!-- 
+    User Management Interface
+    
+    This template provides admin-only functionality for managing system users:
+    - View all users with role, status, and permission information
+    - Add new users with role assignment and Tautulli user permissions
+    - Edit existing users (username, role, status, permissions)
+    - Delete users (with protection for last admin)
+    
+    Features:
+    - Bootstrap modals for add/edit operations
+    - Dynamic Tautulli user loading via AJAX
+    - Real-time form validation and feedback
+    - Accessibility compliance with proper ARIA labels
+    - Permission-based button visibility
+-->
+<style>
+/* Improve form styling */
+.form-text {
+    font-size: 0.875rem;
+    color: var(--bs-secondary);
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+</style>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>User Management</h2>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                    <i class="fas fa-plus"></i> Add User
+                </button>
+            </div>
+            
+            <!-- Users Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">System Users</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Allowed Tautulli Users</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ user.username }}</strong>
+                                        {% if user.must_change_password %}
+                                        <span class="badge bg-warning text-dark ms-2">Must Change Password</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if user.is_admin() %}bg-danger{% else %}bg-secondary{% endif %}">
+                                            {{ user.role.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if user.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                            {% if user.is_active %}Active{% else %}Disabled{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if user.is_admin() %}
+                                            <em class="text-muted">All users (Admin)</em>
+                                        {% else %}
+                                            {% set allowed = user.get_allowed_users() %}
+                                            {% if allowed %}
+                                                {% for username in allowed %}
+                                                    <span class="badge bg-info me-1">{{ username }}</span>
+                                                {% endfor %}
+                                            {% else %}
+                                                <em class="text-muted">No access</em>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        <!-- Edit button - always show for all users -->
+                                        <button type="button" class="btn btn-sm btn-outline-primary me-1 edit-user-btn" 
+                                                data-user-id="{{ user.id }}"
+                                                data-username="{{ user.username }}"
+                                                data-role="{{ user.role }}"
+                                                data-is-active="{{ user.is_active|lower }}"
+                                                data-allowed-users='{{ user.get_allowed_users()|tojson }}'>
+                                            <i class="fas fa-edit"></i> Edit
+                                        </button>
+                                        
+                                        <!-- Delete button - only show for non-admins OR if there are multiple admins -->
+                                        {% set admin_count = users|selectattr("role", "equalto", "admin")|list|length %}
+                                        {% if not user.is_admin() or (user.is_admin() and admin_count > 1) %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger delete-user-btn"
+                                                data-user-id="{{ user.id }}"
+                                                data-username="{{ user.username }}">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('add_user') }}">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="username" name="username" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="role" class="form-label">Role</label>
+                                <select class="form-select" id="role" name="role" onchange="toggleUserAccess()">
+                                    <option value="user">User</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                                <div class="form-text">Users can only access assigned Tautulli users. Admins have full access.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Temporary Password</label>
+                                <input type="password" class="form-control" id="password" name="password" required>
+                                <div class="form-text">User will be required to change this on first login.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
+                                    <label class="form-check-label" for="is_active">
+                                        Account Active
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="userAccessSection">
+                        <div class="mb-3">
+                            <label class="form-label">Allowed Tautulli Users</label>
+                            <div id="tautulliUsers">
+                                <div class="text-muted">Loading Tautulli users...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('edit_user') }}">
+                <input type="hidden" id="edit_user_id" name="user_id">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit_username" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="edit_username" name="username" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit_role" class="form-label">Role</label>
+                                <select class="form-select" id="edit_role" name="role" onchange="toggleEditUserAccess()">
+                                    <option value="user">User</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                                <div class="form-text">Users can only access assigned Tautulli users. Admins have full access.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="edit_is_active" name="is_active">
+                                    <label class="form-check-label" for="edit_is_active">
+                                        Account Active
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="reset_password" name="reset_password">
+                                    <label class="form-check-label" for="reset_password">
+                                        Force password change on next login
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="editUserAccessSection">
+                        <div class="mb-3">
+                            <label class="form-label">Allowed Tautulli Users</label>
+                            <div id="editTautulliUsers">
+                                <div class="text-muted">Loading Tautulli users...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * User Management JavaScript Functions
+ * 
+ * Handles dynamic user interface interactions for user management:
+ * - Toggle user access sections based on role selection
+ * - Load Tautulli users via AJAX with error handling
+ * - Populate edit modal with user data using data attributes
+ * - Form validation and submission handling
+ * - Accessibility compliance (modal focus management)
+ */
+
+/**
+ * Toggle the user access section visibility based on selected role
+ * Admin users don't need specific Tautulli user assignments
+ */
+function toggleUserAccess() {
+    const role = document.getElementById('role').value;
+    const section = document.getElementById('userAccessSection');
+    section.style.display = role === 'admin' ? 'none' : 'block';
+    if (role === 'admin') {
+        loadTautulliUsers('tautulliUsers', []);
+    } else {
+        loadTautulliUsers('tautulliUsers', []);
+    }
+}
+
+/**
+ * Toggle user access section visibility for edit modal
+ */
+function toggleEditUserAccess() {
+    const role = document.getElementById('edit_role').value;
+    const section = document.getElementById('editUserAccessSection');
+    section.style.display = role === 'admin' ? 'none' : 'block';
+}
+
+/**
+ * Load Tautulli users from API and populate checkboxes
+ * @param {string} containerId - ID of container to populate
+ * @param {Array} selectedUsers - Array of usernames to pre-select
+ */
+function loadTautulliUsers(containerId, selectedUsers = []) {
+    fetch('/api/tautulli_users')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById(containerId);
+            if (data.error) {
+                container.innerHTML = '<div class="text-danger">Error loading users: ' + data.error + '</div>';
+                return;
+            }
+            
+            let html = '';
+            data.users.forEach(user => {
+                const isSelected = selectedUsers.includes(user.friendly_name);
+                html += `
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="allowed_users" 
+                               value="${user.friendly_name}" id="user_${user.user_id}" ${isSelected ? 'checked' : ''}>
+                        <label class="form-check-label" for="user_${user.user_id}">
+                            ${user.friendly_name}
+                        </label>
+                    </div>
+                `;
+            });
+            
+            if (html === '') {
+                html = '<div class="text-muted">No Tautulli users found</div>';
+            }
+            
+            container.innerHTML = html;
+        })
+        .catch(error => {
+            document.getElementById(containerId).innerHTML = '<div class="text-danger">Error loading users</div>';
+        });
+}
+
+/**
+ * Populate and show the edit user modal
+ * @param {string} id - User ID
+ * @param {string} username - Username
+ * @param {string} role - User role (admin/user)
+ * @param {boolean} isActive - Account active status
+ * @param {Array} allowedUsers - Array of allowed Tautulli usernames
+ */
+function editUser(id, username, role, isActive, allowedUsers) {
+    document.getElementById('edit_user_id').value = id;
+    document.getElementById('edit_username').value = username;
+    document.getElementById('edit_role').value = role;
+    document.getElementById('edit_is_active').checked = isActive;
+    
+    toggleEditUserAccess();
+    loadTautulliUsers('editTautulliUsers', allowedUsers);
+    
+    new bootstrap.Modal(document.getElementById('editUserModal')).show();
+}
+
+/**
+ * Delete user with confirmation prompt
+ * @param {string} id - User ID to delete
+ * @param {string} username - Username for confirmation message
+ */
+function deleteUser(id, username) {
+    if (confirm('Are you sure you want to delete user "' + username + '"? This action cannot be undone.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("delete_user") }}';
+        
+        const userIdInput = document.createElement('input');
+        userIdInput.type = 'hidden';
+        userIdInput.name = 'user_id';
+        userIdInput.value = id;
+        
+        form.appendChild(userIdInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Event listeners for edit and delete buttons
+// Uses data attributes for safe parameter passing (avoids inline onclick with quotes)
+document.addEventListener('DOMContentLoaded', function() {
+    // Edit user buttons - attach click handlers
+    document.querySelectorAll('.edit-user-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            // Extract user data from data attributes
+            const id = this.dataset.userId;
+            const username = this.dataset.username;
+            const role = this.dataset.role;
+            const isActive = this.dataset.isActive === 'true';
+            
+            // Parse allowed users JSON with error handling
+            let allowedUsers = [];
+            try {
+                const allowedUsersData = this.dataset.allowedUsers;
+                
+                if (allowedUsersData && allowedUsersData.trim() !== '' && allowedUsersData !== 'undefined') {
+                    allowedUsers = JSON.parse(allowedUsersData);
+                }
+            } catch (e) {
+                // Log parsing errors for debugging (keep for actual issues)
+                console.warn('Failed to parse allowed users data:', e);
+                console.warn('Raw data was:', this.dataset.allowedUsers);
+                allowedUsers = [];
+            }
+            
+            editUser(id, username, role, isActive, allowedUsers);
+        });
+    });
+    
+    // Delete user buttons - attach click handlers
+    document.querySelectorAll('.delete-user-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.dataset.userId;
+            const username = this.dataset.username;
+            
+            deleteUser(id, username);
+        });
+    });
+    
+    // Initialize form state
+    toggleUserAccess();
+    
+    // Load users when add modal is opened
+    document.getElementById('addUserModal').addEventListener('shown.bs.modal', function () {
+        toggleUserAccess();
+    });
+    
+    // Fix accessibility issue with modal close button focus
+    // Prevents aria-hidden warnings when modal closes
+    document.getElementById('editUserModal').addEventListener('hide.bs.modal', function () {
+        // Remove focus from any focused element within the modal before it closes
+        if (document.activeElement && this.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
+    });
+    
+    document.getElementById('addUserModal').addEventListener('hide.bs.modal', function () {
+        // Remove focus from any focused element within the modal before it closes
+        if (document.activeElement && this.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
+    });
+});
+</script>
+{% endblock %}
