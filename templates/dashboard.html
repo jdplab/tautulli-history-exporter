@@ -191,11 +191,11 @@ function loadUsers() {
                     select.appendChild(option);
                 });
             } else {
-                alert('Error loading users: ' + data.message);
+                showErrorToast('Error loading users: ' + data.message);
             }
         })
         .catch(error => {
-            alert('Error loading users: ' + error.message);
+            showErrorToast('Error loading users: ' + error.message);
         })
         .finally(() => {
             button.disabled = false;
@@ -211,12 +211,10 @@ document.getElementById('historyForm').addEventListener('submit', function(e) {
     const startDate = document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
     
-    if (startDate && endDate && startDate > endDate) {
-        alert('Start date must be before or equal to end date');
-        return;
-    }
-    
-    const formData = new FormData(this);
+        if (startDate && endDate && startDate > endDate) {
+            showErrorToast('Start date must be before or equal to end date');
+            return;
+        }    const formData = new FormData(this);
     const loadingIndicator = document.getElementById('loadingIndicator');
     const resultsSection = document.getElementById('resultsSection');
     
@@ -243,11 +241,11 @@ document.getElementById('historyForm').addEventListener('submit', function(e) {
             displayHistory(data.history);
             document.getElementById('exportCsv').disabled = false;
         } else {
-            alert('Error loading history: ' + data.message);
+            showErrorToast('Error loading history: ' + data.message);
         }
     })
     .catch(error => {
-        alert('Error loading history: ' + error.message);
+        showErrorToast('Error loading history: ' + error.message);
     })
     .finally(() => {
         loadingIndicator.style.display = 'none';
@@ -446,7 +444,7 @@ function displayHistory(history) {
 // Export CSV function
 document.getElementById('exportCsv').addEventListener('click', function() {
     if (currentHistoryData.length === 0) {
-        alert('No data to export');
+        showErrorToast('No data to export');
         return;
     }
     
@@ -482,7 +480,7 @@ document.getElementById('exportCsv').addEventListener('click', function() {
         document.body.removeChild(a);
     })
     .catch(error => {
-        alert('Error exporting CSV: ' + error.message);
+        showErrorToast('Error exporting CSV: ' + error.message);
     })
     .finally(() => {
         button.disabled = false;

@@ -131,7 +131,7 @@ def get_tautulli_users(url, api_key):
             return []
     
     except Exception as e:
-        print(f"Error getting users: {e}")
+        app.logger.error(f"Error getting users: {e}")
         return []
 
 def get_user_history(url, api_key, user_id, start_date=None, end_date=None, media_type=None, length=25):
@@ -174,12 +174,10 @@ def get_user_history(url, api_key, user_id, start_date=None, end_date=None, medi
                 end_timestamp = None
                 
                 if start_date:
-                    from datetime import datetime
                     start_dt = datetime.strptime(start_date, '%Y-%m-%d')
                     start_timestamp = int(start_dt.timestamp())
                     
                 if end_date:
-                    from datetime import datetime, timedelta
                     end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1) - timedelta(seconds=1)
                     end_timestamp = int(end_dt.timestamp())
                 
@@ -204,7 +202,7 @@ def get_user_history(url, api_key, user_id, start_date=None, end_date=None, medi
             return []
     
     except Exception as e:
-        print(f"Error getting history: {e}")
+        app.logger.error(f"Error getting history: {e}")
         return []
 
 # Routes
@@ -360,7 +358,6 @@ def get_history():
     # Validate date range
     if start_date and end_date:
         try:
-            from datetime import datetime
             start_dt = datetime.strptime(start_date, '%Y-%m-%d')
             end_dt = datetime.strptime(end_date, '%Y-%m-%d')
             if start_dt > end_dt:
@@ -487,4 +484,5 @@ def create_tables():
 
 if __name__ == '__main__':
     create_tables()
-    app.run(debug=True, host='0.0.0.0')
+    debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(debug=debug_mode, host='0.0.0.0')
