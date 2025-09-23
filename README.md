@@ -79,16 +79,7 @@ This project was developed with assistance from AI tools (GitHub Copilot and Cla
    "@ | Out-File -FilePath .env -Append -Encoding utf8
    ```
 
-4. **Fix the DATABASE_URL** (replace the password variable with the actual password)
-   ```powershell
-   # Get the password from .env
-   $password = (Get-Content .env | Select-String "POSTGRES_PASSWORD=").ToString().Split("=")[1]
-   
-   # Update the DATABASE_URL with the actual password
-   (Get-Content .env) -replace '\$\{POSTGRES_PASSWORD\}', $password | Set-Content .env
-   ```
-
-5. **Start the application**
+4. **Start the application**
    ```powershell
    docker-compose up -d
    ```
