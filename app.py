@@ -1,3 +1,23 @@
+#!/usr/bin/env python3
+"""
+Tautulli History Exporter
+
+A modern, production-ready Flask web application for exporting watch history from Tautulli
+with comprehensive security, beautiful UI, and advanced filtering capabilities.
+
+Features:
+- Secure authentication with password management
+- Multi-layered security (rate limiting, CSRF protection, secure headers)
+- Modern responsive UI with dark/light theme support
+- Advanced data filtering and CSV export capabilities
+- Production-ready Docker deployment
+- Comprehensive error handling and logging
+
+Author: Jonathan Polansky (with AI assistance)
+License: MIT
+Version: 2.0.0
+"""
+
 import os
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify, make_response
 from flask_sqlalchemy import SQLAlchemy
@@ -16,28 +36,36 @@ from sqlalchemy import text
 app = Flask(__name__)
 
 # Security Configuration
+# Generate secure secret key if not provided
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+# Database connection - defaults to SQLite for development
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///tautulli_exporter.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# CSRF Protection
 app.config['WTF_CSRF_ENABLED'] = True
-app.config['WTF_CSRF_TIME_LIMIT'] = None
+app.config['WTF_CSRF_TIME_LIMIT'] = None  # No time limit for CSRF tokens
+
+# Session Security - secure cookies in production only
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent XSS access to session cookies
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
+# Default session timeout: 8 hours (480 minutes)
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=int(os.environ.get('SESSION_TIMEOUT', 480)))
 
 # Security Headers
 if os.environ.get('SECURITY_HEADERS', 'true').lower() == 'true':
+    # Content Security Policy - allows Bootstrap CSS/JS from CDN
     csp = {
-        'default-src': "'self'",
-        'script-src': "'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-        'style-src': "'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-        'font-src': "'self' https://cdn.jsdelivr.net",
-        'img-src': "'self' data:",
-        'connect-src': "'self' https://cdn.jsdelivr.net"
+        'default-src': "'self'",  # Only allow resources from same origin by default
+        'script-src': "'self' 'unsafe-inline' https://cdn.jsdelivr.net",  # Allow Bootstrap JS
+        'style-src': "'self' 'unsafe-inline' https://cdn.jsdelivr.net",   # Allow Bootstrap CSS
+        'font-src': "'self' https://cdn.jsdelivr.net",                   # Allow Bootstrap fonts
+        'img-src': "'self' data:",                                       # Allow images and data URIs
+        'connect-src': "'self' https://cdn.jsdelivr.net"                 # Allow AJAX to CDN
     }
     Talisman(app, 
-             force_https=False,  # Set to True when using HTTPS
+             force_https=False,  # Set to True when using HTTPS in production
              strict_transport_security=True,
              content_security_policy=csp)
 
@@ -45,8 +73,8 @@ if os.environ.get('SECURITY_HEADERS', 'true').lower() == 'true':
 redis_url = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
 limiter = Limiter(
     app,
-    key_func=get_remote_address,
-    default_limits=[f"{os.environ.get('RATE_LIMIT', 100)} per minute"],
+    key_func=get_remote_address,  # Rate limit by client IP address
+    default_limits=[f"{os.environ.get('RATE_LIMIT', 100)} per minute"],  # Default: 100 requests/minute
     storage_uri=redis_url
 )
 
@@ -75,9 +103,21 @@ class Configuration(db.Model):
 
 # Helper Functions
 def is_logged_in():
+    """
+    Check if a user is currently logged in.
+    
+    Returns:
+        bool: True if user is logged in (user_id in session), False otherwise
+    """
     return 'user_id' in session
 
 def get_configuration():
+    """
+    Get or create the application configuration from database.
+    
+    Returns:
+        Configuration: The configuration object containing Tautulli URL and API key
+    """
     config = Configuration.query.first()
     if not config:
         config = Configuration()
@@ -86,7 +126,16 @@ def get_configuration():
     return config
 
 def test_tautulli_connection(url, api_key):
-    """Test connection to Tautulli API"""
+    """
+    Test connection to Tautulli API by attempting to get server info.
+    
+    Args:
+        url (str): The Tautulli server URL
+        api_key (str): The Tautulli API key
+        
+    Returns:
+        tuple: (success: bool, message: str) indicating connection status and result message
+    """
     try:
         if not url.endswith('/'):
             url += '/'
@@ -111,7 +160,17 @@ def test_tautulli_connection(url, api_key):
         return False, f"Error: {str(e)}"
 
 def get_tautulli_users(url, api_key):
-    """Get list of users from Tautulli"""
+    """
+    Retrieve list of users from Tautulli API.
+    
+    Args:
+        url (str): The Tautulli server URL
+        api_key (str): The Tautulli API key
+        
+    Returns:
+        list: List of user dictionaries containing user_id and friendly_name,
+              or empty list if request fails
+    """
     try:
         if not url.endswith('/'):
             url += '/'
@@ -135,7 +194,22 @@ def get_tautulli_users(url, api_key):
         return []
 
 def get_user_history(url, api_key, user_id, start_date=None, end_date=None, media_type=None, length=25):
-    """Get user watch history from Tautulli"""
+    """
+    Get user watch history from Tautulli with optional filtering.
+    
+    Args:
+        url (str): The Tautulli server URL
+        api_key (str): The Tautulli API key
+        user_id (str): The user ID to get history for
+        start_date (str, optional): Start date filter in YYYY-MM-DD format
+        end_date (str, optional): End date filter in YYYY-MM-DD format
+        media_type (str, optional): Media type filter (movie, episode, track, etc.)
+        length (int, optional): Maximum number of items to return. Defaults to 25
+        
+    Returns:
+        list: List of history items with media information and watch statistics,
+              or empty list if request fails
+    """
     try:
         if not url.endswith('/'):
             url += '/'
@@ -298,6 +372,19 @@ def change_password():
 
 @app.route('/configuration', methods=['GET', 'POST'])
 def configuration():
+    """
+    Configuration management route for Tautulli connection settings.
+    
+    Handles both GET (display form) and POST (save settings) requests.
+    Allows authenticated users to configure Tautulli URL and API key.
+    
+    Returns:
+        GET: Rendered configuration.html template with current config
+        POST: Redirect to configuration page after saving settings
+        
+    Redirects:
+        To login page if user is not authenticated
+    """
     if not is_logged_in():
         return redirect(url_for('login'))
     
@@ -316,6 +403,19 @@ def configuration():
 
 @app.route('/test_connection', methods=['POST'])
 def test_connection():
+    """
+    AJAX endpoint to test Tautulli server connection.
+    
+    Validates connection to Tautulli server using provided URL and API key.
+    Returns JSON response indicating success/failure status.
+    
+    Form Parameters:
+        tautulli_url (str): Tautulli server URL to test
+        api_key (str): API key for authentication
+        
+    Returns:
+        JSON: {'success': bool, 'message': str} - Connection test result
+    """
     if not is_logged_in():
         return jsonify({'success': False, 'message': 'Not logged in'})
     
@@ -327,6 +427,15 @@ def test_connection():
 
 @app.route('/get_users')
 def get_users():
+    """
+    AJAX endpoint to retrieve Tautulli user list.
+    
+    Fetches all users from configured Tautulli server for filtering purposes.
+    Returns JSON response with user data or error message.
+    
+    Returns:
+        JSON: {'success': bool, 'users': list, 'message': str} - User list or error
+    """
     if not is_logged_in():
         return jsonify({'success': False, 'message': 'Not logged in'})
     
@@ -339,6 +448,22 @@ def get_users():
 
 @app.route('/get_history', methods=['POST'])
 def get_history():
+    """
+    AJAX endpoint to retrieve filtered user history from Tautulli.
+    
+    Fetches watch history for specified user with optional filters for
+    date range, media type, and result limit.
+    
+    Form Parameters:
+        user_id (str): Tautulli user ID (required)
+        start_date (str): Start date filter (YYYY-MM-DD format, optional)
+        end_date (str): End date filter (YYYY-MM-DD format, optional)
+        media_type (str): Media type filter (optional)
+        length (int): Number of results to return (default: 25)
+        
+    Returns:
+        JSON: {'success': bool, 'history': list, 'message': str} - History data or error
+    """
     if not is_logged_in():
         return jsonify({'success': False, 'message': 'Not logged in'})
     
@@ -370,6 +495,29 @@ def get_history():
 
 @app.route('/export_csv', methods=['POST'])
 def export_csv():
+    """
+    Export watch history data to CSV file.
+    
+    Generates a CSV file from provided history data with formatted columns
+    including date, user, title, media type, duration, completion percentage,
+    status, and IP address.
+    
+    JSON Parameters:
+        history (list): Array of history objects to export
+        
+    Returns:
+        CSV file download or JSON error response
+        
+    CSV Columns:
+        - Date: Formatted timestamp of watch event
+        - User: Friendly username
+        - Title: Show/movie title with episode info
+        - Media Type: Type of media (movie, episode, etc.)
+        - Duration (min): Playback duration in minutes
+        - Percent Complete: Completion percentage
+        - Status: Finished/Stopped/Unknown
+        - IP Address: Client IP address
+    """
     if not is_logged_in():
         return jsonify({'success': False, 'message': 'Not logged in'})
     
@@ -413,6 +561,14 @@ def export_csv():
 
 @app.route('/logout')
 def logout():
+    """
+    User logout route.
+    
+    Clears user session and redirects to login page.
+    
+    Returns:
+        Redirect to login page
+    """
     session.clear()
     return redirect(url_for('login'))
 
@@ -420,6 +576,23 @@ def logout():
 @app.route('/health')
 @limiter.exempt
 def health_check():
+    """
+    Health check endpoint for application monitoring.
+    
+    Tests database connectivity and returns application status.
+    Exempt from rate limiting for monitoring systems.
+    
+    Returns:
+        JSON: Status information with HTTP 200 (healthy) or 503 (unhealthy)
+        
+    Response Format:
+        {
+            'status': 'healthy'|'unhealthy',
+            'timestamp': ISO format timestamp,
+            'version': Application version,
+            'error': Error message (if unhealthy)
+        }
+    """
     try:
         # Test database connection
         db.session.execute(text('SELECT 1'))
@@ -439,6 +612,24 @@ def health_check():
 # Security headers for all responses
 @app.after_request
 def set_security_headers(response):
+    """
+    Add security headers to all HTTP responses.
+    
+    Applies standard security headers to enhance application security
+    unless disabled via SECURITY_HEADERS environment variable.
+    
+    Args:
+        response (Flask.Response): The response object to modify
+        
+    Returns:
+        Flask.Response: Modified response with security headers
+        
+    Headers Added:
+        - X-Content-Type-Options: nosniff
+        - X-Frame-Options: DENY
+        - X-XSS-Protection: 1; mode=block
+        - Referrer-Policy: strict-origin-when-cross-origin
+    """
     if os.environ.get('SECURITY_HEADERS', 'true').lower() == 'true':
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'
@@ -449,12 +640,32 @@ def set_security_headers(response):
 # Error handlers
 @app.errorhandler(404)
 def not_found(error):
+    """
+    Handle 404 Not Found errors.
+    
+    Args:
+        error: The error object (unused)
+        
+    Returns:
+        Rendered error template with 404 status code
+    """
     return render_template('error.html', 
                          title='Page Not Found',
                          message='The requested page could not be found.'), 404
 
 @app.errorhandler(500)
 def internal_error(error):
+    """
+    Handle 500 Internal Server errors.
+    
+    Logs the error and rolls back database session to prevent corruption.
+    
+    Args:
+        error: The error object
+        
+    Returns:
+        Rendered error template with 500 status code
+    """
     app.logger.error(f'Internal server error: {str(error)}')
     db.session.rollback()
     return render_template('error.html',
@@ -463,12 +674,32 @@ def internal_error(error):
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
+    """
+    Handle 429 Rate Limit Exceeded errors.
+    
+    Args:
+        e: The rate limit error object
+        
+    Returns:
+        Rendered error template with 429 status code
+    """
     return render_template('error.html',
                          title='Rate Limit Exceeded',
                          message='Too many requests. Please wait before trying again.'), 429
 
 # Initialize database and create default user
 def create_tables():
+    """
+    Initialize database tables and create default admin user.
+    
+    Creates all database tables defined by SQLAlchemy models and
+    ensures a default admin user exists for initial application access.
+    
+    Default User:
+        - Username: admin
+        - Password: admin (must be changed on first login)
+        - must_change_password: True
+    """
     with app.app_context():
         db.create_all()
         
