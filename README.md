@@ -39,11 +39,61 @@ This project was developed with assistance from AI tools (GitHub Copilot and Cla
 ## 🚀 How to Install
 
 ### Prerequisites
-- Docker and Docker Compose installed on your system
+- **Docker and Docker Compose** installed on your system
+  - **Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose)
+  - **Linux**: Install Docker and Docker Compose via your package manager
 - A running Tautulli server with API access
 - 5 minutes of your time
 
-### Quick Setup
+### 🪟 Windows Installation
+
+1. **Clone the repository**
+   ```powershell
+   git clone https://github.com/jdplab/tautulli-history-exporter
+   cd tautulli-history-exporter
+   ```
+
+2. **Generate security keys**
+   ```powershell
+   # Generate SECRET_KEY and save to .env
+   python -c "import secrets; print('SECRET_KEY=' + secrets.token_hex(32))" | Out-File -FilePath .env -Encoding utf8
+   
+   # Generate database password and append to .env
+   python -c "import secrets, string; chars=string.ascii_letters+string.digits; print('POSTGRES_PASSWORD=' + ''.join(secrets.choice(chars) for i in range(20)))" | Out-File -FilePath .env -Append -Encoding utf8
+   ```
+
+3. **Add the rest of the configuration**
+   ```powershell
+   @"
+   
+   # Database configuration
+   DATABASE_URL=postgresql://tautulli_user:`${POSTGRES_PASSWORD}@db:5432/tautulli_exporter
+   
+   # Session storage
+   REDIS_URL=redis://redis:6379/0
+   
+   # App settings
+   FLASK_ENV=production
+   HOST=0.0.0.0
+   PORT=5000
+   "@ | Out-File -FilePath .env -Append -Encoding utf8
+   ```
+
+4. **Fix the DATABASE_URL** (replace the password variable with the actual password)
+   ```powershell
+   # Get the password from .env
+   $password = (Get-Content .env | Select-String "POSTGRES_PASSWORD=").ToString().Split("=")[1]
+   
+   # Update the DATABASE_URL with the actual password
+   (Get-Content .env) -replace '\$\{POSTGRES_PASSWORD\}', $password | Set-Content .env
+   ```
+
+5. **Start the application**
+   ```powershell
+   docker-compose up -d
+   ```
+
+### 🐧 Linux Installation
 
 1. **Clone the repository**
    ```bash
@@ -82,11 +132,20 @@ This project was developed with assistance from AI tools (GitHub Copilot and Cla
    docker-compose up -d
    ```
 
-5. **Access and configure**
+### ⚙️ Initial Setup (Both Platforms)
+
+1. **Access the application**
    - Open http://localhost:5000 in your browser
    - Login with username: `admin`, password: `admin`
+
+2. **Change the default password**
    - You'll be prompted to change the password immediately
-   - Go to Configuration and add your Tautulli URL and API key
+   - Choose a strong password for your admin account
+
+3. **Configure Tautulli connection**
+   - Go to Configuration
+   - Add your Tautulli URL (usually `http://your-server-ip:8181`)
+   - Add your Tautulli API key
    - Test the connection and save
 
 That's it! You're ready to export your watch history.
@@ -155,7 +214,7 @@ The app doesn't store your watch history - it pulls it fresh from Tautulli each 
 
 ## 📄 License
 
-MIT License - use it however you want! Just remember to follow Tautulli's terms of service and your local privacy laws.
+GNU General Public License v3.0 - This project is free and open source software. You can use, modify, and distribute it under the terms of the GPL v3. Just remember to follow Tautulli's terms of service and your local privacy laws.
 
 ## 🙏 Thanks
 

@@ -14,7 +14,7 @@ Features:
 - Comprehensive error handling and logging
 
 Author: Jonathan Polansky (with AI assistance)
-License: MIT
+License: GNU GPL v3
 Version: 2.0.0
 """
 
