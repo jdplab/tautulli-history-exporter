@@ -34,7 +34,7 @@ if os.environ.get('SECURITY_HEADERS', 'true').lower() == 'true':
         'style-src': "'self' 'unsafe-inline' https://cdn.jsdelivr.net",
         'font-src': "'self' https://cdn.jsdelivr.net",
         'img-src': "'self' data:",
-        'connect-src': "'self'"
+        'connect-src': "'self' https://cdn.jsdelivr.net"
     }
     Talisman(app, 
              force_https=False,  # Set to True when using HTTPS
